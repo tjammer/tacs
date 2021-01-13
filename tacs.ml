@@ -360,18 +360,12 @@ let rec loop texs tbl (state, team) (moves : Moves.t) =
           line_thickness Color.yellow
       in
 
-      let highlight_move move =
+      let highlight_move move team =
         let layout =
-          match
-            List.combine (Moves.get_all moves Blue) layout_blue
-            |> List.Assoc.get move ~eq:Move.equal
-          with
-          | Some layout -> layout
-          | None ->
-              List.combine (Moves.get_all moves Red) layout_red
-              |> List.Assoc.get_exn move ~eq:Move.equal
+          (match team with Team.Blue -> layout_blue | Red -> layout_red)
+          |> List.combine (Moves.get_all moves (Moves.key_of_team team))
+          |> List.Assoc.get_exn move ~eq:Move.equal
         in
-
         draw_rectangle_lines_ex
           (recti layout.origin.x layout.origin.y (layout.size.x * 5)
              (layout.size.y * 5))
@@ -380,9 +374,9 @@ let rec loop texs tbl (state, team) (moves : Moves.t) =
       in
       ( match state with
       | Choose_move -> ()
-      | Choose_ent move -> highlight_move move
+      | Choose_ent move -> highlight_move move team
       | Move (move, selected, _) ->
-          highlight_move move;
+          highlight_move move team;
           highlight_ent selected
       | Over k ->
           draw_text
