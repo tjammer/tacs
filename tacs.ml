@@ -1,3 +1,4 @@
+(* TODO instead  using color have it like me and them *)
 open Containers
 module ImCoords = Helpers.ImmuHashtbl.Make (Hashtbl.Make (Tile.Coord))
 
@@ -17,6 +18,12 @@ module Team = struct
   type t = Blue | Red [@@deriving eq]
 
   let flip = function Blue -> Red | Red -> Blue
+
+  let to_str = function Blue -> "Blue" | Red -> "Red"
+
+  let win_field = function
+    | Blue -> Tile.{ x = 2; y = 0 }
+    | Red -> { x = 2; y = 4 }
 end
 
 let inside_field coord =
@@ -25,15 +32,15 @@ let inside_field coord =
 module Move = struct
   type t = Tile.Coord.t list [@@deriving eq]
 
-  let is_valid ~from ~towards move =
+  let is_valid ~src ~dst move =
     List.fold_while
       (fun accum move ->
-        match inside_field towards with
+        match inside_field dst with
         | true ->
             if
               Tile.Coord.equal
-                Tile.{ x = from.x + move.x; y = from.y + move.y }
-                towards
+                Tile.{ x = src.x + move.x; y = src.y + move.y }
+                dst
             then (true, `Stop)
             else (accum, `Continue)
         | false -> (false, `Stop))
@@ -66,26 +73,30 @@ type state =
   | Choose_move
   | Choose_ent of Move.t
   | Move of Move.t * Tile.Coord.t * kind
+  | Over of Team.t
 
 let choose_ent tbl coord team =
   match ImCoords.find_opt tbl coord with
   | Some (kind, t) -> if Team.equal team t then Some kind else None
   | None -> None
 
-let outcome_of_selected tbl (move, selected, _) team mpos =
-  if Move.is_valid ~from:selected ~towards:mpos move then
-    match ImCoords.find_opt tbl mpos with
+let outcome_of_selected tbl (move, selected, _) team dst =
+  if Move.is_valid ~src:selected ~dst move then
+    match ImCoords.find_opt tbl dst with
     | Some (other_kind, other_team) ->
-        if not (Team.equal team other_team) then Some (`Take other_kind)
+        if not (Team.equal team other_team) then
+          if equal_kind other_kind King then Some `Win_take else Some `Take
         else None
-    | None -> Some `Move
+    | None ->
+        if Tile.Coord.equal dst (Team.win_field team) then Some `Win_move
+        else Some `Move
   else None
 
 let recti x y width height =
   Raylib.Rectangle.create (Float.of_int x) (Float.of_int y) (Float.of_int width)
     (Float.of_int height)
 
-let draw_move move layout =
+let draw_move move layout hl =
   let open Raylib in
   for y = 0 to 4 do
     for x = 0 to 4 do
@@ -94,8 +105,7 @@ let draw_move move layout =
         else
           List.fold_while
             (fun acc coord ->
-              if Tile.Coord.equal coord { x = x - 2; y = y - 2 } then
-                (Color.skyblue, `Stop)
+              if Tile.Coord.equal coord { x = x - 2; y = y - 2 } then (hl, `Stop)
               else (acc, `Continue))
             Color.lightgray move
       in
@@ -138,6 +148,22 @@ let choose_move blue_moves red_moves team mx my =
           else None)
         layout_red
 
+let advance move team blue red middle =
+  (* returns blue, red, middle *)
+  match team with
+  | Team.Blue -> (
+      match blue with
+      | [ a; b ] ->
+          if Move.equal move a then ([ middle; b ], red, Move.flip move)
+          else ([ a; middle ], red, Move.flip move)
+      | _ -> failwith "more than two moves" )
+  | Red -> (
+      match red with
+      | [ a; b ] ->
+          if Move.equal move a then (blue, [ middle; b ], Move.flip move)
+          else (blue, [ a; middle ], Move.flip move)
+      | _ -> failwith "more than two moves" )
+
 let setup () =
   let module Coordtbl = Hashtbl.Make (Tile.Coord) in
   let open Raylib in
@@ -162,25 +188,7 @@ let setup () =
   Coordtbl.add tbl { Tile.x = 4; y = 0 } (Pawn, Red);
   ((pawn_blue, king_blue, pawn_red, king_red), tbl)
 
-let advance move team blue red middle =
-  (* returns blue, red, middle *)
-  match team with
-  | Team.Blue -> (
-      match blue with
-      | [ a; b ] ->
-          if Move.equal move a then ([ middle; b ], red, Move.flip move)
-          else ([ a; middle ], red, Move.flip move)
-      | _ -> failwith "hm" )
-  | Red -> (
-      match red with
-      | [ a; b ] ->
-          if Move.equal move a then (blue, [ middle; b ], Move.flip move)
-          else (blue, [ a; middle ], Move.flip move)
-      | _ -> failwith "dm" )
-
-(* TODO args *)
-let rec loop texs tbl (state, team) (blue_moves : Move.t list)
-    (red_moves : Move.t list) middle =
+let rec loop texs tbl (state, team) blue_moves red_moves middle =
   let open Raylib in
   match window_should_close () with
   | true -> close_window ()
@@ -203,7 +211,7 @@ let rec loop texs tbl (state, team) (blue_moves : Move.t list)
           | Move (m, selected, kind) -> (
               let module Coordtbl = Hashtbl.Make (Tile.Coord) in
               match outcome_of_selected tbl (m, selected, kind) team coord with
-              | Some (`Take _) ->
+              | Some `Take ->
                   Coordtbl.replace tbl coord (kind, team);
                   Coordtbl.remove tbl selected;
                   (state, Some m)
@@ -211,12 +219,15 @@ let rec loop texs tbl (state, team) (blue_moves : Move.t list)
                   Coordtbl.add tbl coord (kind, team);
                   Coordtbl.remove tbl selected;
                   (state, Some m)
+              | Some `Win_take | Some `Win_move -> (Over team, None)
               | None -> (Move (m, selected, kind), None) )
+          | Over k -> (Over k, None)
         else if is_mouse_button_pressed MouseButton.Right then
           match state with
           | Choose_move -> (Choose_move, None)
           | Choose_ent _ -> (Choose_move, None)
           | Move (move, _, _) -> (Choose_ent move, None)
+          | Over team -> (Over team, None)
         else (state, None)
       in
 
@@ -239,7 +250,9 @@ let rec loop texs tbl (state, team) (blue_moves : Move.t list)
                 match
                   outcome_of_selected tbl (move, selected, kind) team target
                 with
-                | Some _ -> Some target
+                | Some `Take -> Some (target, `Take)
+                | Some `Win_move | Some `Win_take -> Some (target, `Win)
+                | Some `Move -> Some (target, `Move)
                 | None -> None)
               move
         | _ -> []
@@ -260,9 +273,15 @@ let rec loop texs tbl (state, team) (blue_moves : Move.t list)
       done;
 
       List.iter
-        (fun coord ->
+        (fun (coord, mv_kind) ->
           let x, y = Tile.Coord.to_px coord layout in
-          draw_rectangle x y layout.size.x layout.size.y Color.blue)
+          let col =
+            match mv_kind with
+            | `Take -> Color.red
+            | `Move -> Color.lime
+            | `Win -> Color.yellow
+          in
+          draw_rectangle x y layout.size.x layout.size.y (fade col 0.5))
         highlights;
 
       let pawn_blue, king_blue, pawn_red, king_red = texs in
@@ -285,10 +304,13 @@ let rec loop texs tbl (state, team) (blue_moves : Move.t list)
         tbl;
 
       List.iter2
-        (fun move layout -> draw_move move layout)
+        (fun move layout -> draw_move move layout Color.skyblue)
         blue_moves layout_blue;
-      List.iter2 (fun move layout -> draw_move move layout) red_moves layout_red;
-      draw_move middle layout_mid;
+      List.iter2
+        (fun move layout -> draw_move move layout Color.orange)
+        red_moves layout_red;
+      draw_move middle layout_mid
+        (match team with Blue -> Color.skyblue | Red -> Color.orange);
 
       let highlight_ent ent =
         let x, y = Tile.Coord.to_px ent layout in
@@ -322,7 +344,13 @@ let rec loop texs tbl (state, team) (blue_moves : Move.t list)
       | Choose_ent move -> highlight_move move
       | Move (move, selected, _) ->
           highlight_move move;
-          highlight_ent selected );
+          highlight_ent selected
+      | Over k ->
+          draw_text
+            ("Game Over! " ^ Team.to_str k ^ " won!")
+            100
+            ((height / 2) - 100)
+            100 Color.black );
       end_drawing ();
       loop texs tbl (state, team) blue_moves red_moves middle
 
