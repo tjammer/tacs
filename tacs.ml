@@ -1,5 +1,6 @@
 (* TODO instead  using color have it like me and them *)
 open Containers
+open Moves
 module ImCoords = Helpers.ImmuHashtbl.Make (Hashtbl.Make (Tile.Coord))
 
 let ( let* ) = Option.bind
@@ -24,84 +25,17 @@ module Team = struct
   let win_field = function
     | Blue -> Tile.{ x = 2; y = 0 }
     | Red -> { x = 2; y = 4 }
+
+  let to_moves_key = function Blue -> Moves.(Blue) | Red -> Red
 end
-
-let inside_field coord =
-  Tile.(coord.x) >= 0 && coord.x < 5 && coord.y >= 0 && coord.y < 5
-
-module Move = struct
-  type t = Tile.Coord.t list [@@deriving eq]
-
-  let is_valid ~src ~dst move =
-    List.fold_while
-      (fun accum move ->
-        match inside_field dst with
-        | true ->
-            if
-              Tile.Coord.equal
-                Tile.{ x = src.x + move.x; y = src.y + move.y }
-                dst
-            then (true, `Stop)
-            else (accum, `Continue)
-        | false -> (false, `Stop))
-      false move
-
-  let flip = List.map (fun Tile.{ x; y } -> Tile.{ x = -x; y = -y })
-end
-
-module Moves = struct
-  type key = Blue | Red | Middle [@@deriving eq]
-
-  type t = (key * Move.t list) list
-
-  let distribute_initial moves =
-    Random.self_init ();
-    let moves =
-      Random.get_state ()
-      |> Random.sample_without_duplicates ~cmp:compare 5
-           (Random.int (List.length moves))
-      |> List.map (fun i -> List.nth moves i)
-    in
-
-    let blue, moves = List.take_drop 2 moves in
-    let red, moves = List.take_drop 2 moves in
-    let middle = List.take 1 moves in
-    let red = List.map (fun m -> Move.flip m) red in
-    [ (Blue, blue); (Red, red); (Middle, middle) ]
-
-  let get_all moves key = List.Assoc.get_exn ~eq:equal_key key moves
-
-  let get_middle moves = get_all moves Middle |> List.hd
-
-  let key_of_team = function Team.Blue -> Blue | Team.Red -> Red
-end
-
-let mantis = [ { Tile.x = 0; y = -1 }; { x = -1; y = 1 }; { x = 1; y = 1 } ]
-
-let horse = [ { Tile.x = 0; y = 1 }; { x = -1; y = 0 }; { x = 0; y = -1 } ]
-
-let tiger = [ { Tile.x = 0; y = 1 }; { x = 0; y = -2 } ]
-
-let ox = [ { Tile.x = 0; y = -1 }; { x = 1; y = 0 }; { x = 0; y = 1 } ]
-
-let cobra = [ { Tile.x = 1; y = 1 }; { x = 1; y = -1 }; { x = -1; y = 0 } ]
-
-let monkey =
-  [
-    { Tile.x = -1; y = -1 };
-    { x = -1; y = 1 };
-    { x = 1; y = 1 };
-    { x = 1; y = -1 };
-  ]
-
-let all_moves = [ mantis; horse; tiger; ox; cobra; monkey ]
 
 type state =
   | Choose_move
   | Choose_ent of Move.t
   | Move of Move.t * Tile.Coord.t * kind
   | Over of Team.t
-  | Transition of [ `Switch of Move.t | `Restart ]
+
+type transition = Do_move of Move.t * Tile.Coord.t | Restart | State of state
 
 let choose_ent tbl coord team =
   match ImCoords.find_opt tbl coord with
@@ -139,7 +73,7 @@ let draw_move move layout hl =
             Color.lightgray move
       in
       let x, y = Tile.Coord.to_px { x; y } layout in
-      draw_rectangle x y (layout.size.x - 1) (layout.size.y - 1) color
+      draw_rectangle x y (layout.size.x - 2) (layout.size.y - 2) color
     done
   done
 
@@ -178,7 +112,7 @@ let choose_move moves team mx my =
         layout_red
 
 let advance move team moves =
-  let team = Moves.key_of_team team in
+  let team = Team.to_moves_key team in
   let eq = Moves.equal_key in
   let middle = Moves.get_all moves Middle |> List.hd in
   let moves =
@@ -232,52 +166,57 @@ let rec loop texs tbl (state, team) (moves : Moves.t) =
       let mx, my = Vector2.(x mpos, y mpos) in
       let coord = Tile.Coord.of_px mx my layout in
 
-      let state =
+      let (transition : transition option) =
         if is_mouse_button_pressed MouseButton.Left then
           match state with
           | Choose_move -> (
               match choose_move moves team mx my with
-              | Some move -> Choose_ent move
-              | None -> Choose_move )
+              | Some move -> Some (State (Choose_ent move))
+              | None -> None )
           | Choose_ent move -> (
               match choose_ent tbl coord team with
-              | Some kind -> Move (move, coord, kind)
-              | None -> state )
+              | Some kind -> Some (State (Move (move, coord, kind)))
+              | None -> None )
           | Move (m, selected, kind) -> (
               let module Coordtbl = Hashtbl.Make (Tile.Coord) in
               match outcome_of_selected tbl (m, selected, kind) team coord with
-              | Some `Take ->
-                  Coordtbl.replace tbl coord (kind, team);
-                  Coordtbl.remove tbl selected;
-                  Transition (`Switch m)
-              | Some `Move ->
-                  Coordtbl.add tbl coord (kind, team);
-                  Coordtbl.remove tbl selected;
-                  Transition (`Switch m)
-              | Some `Win_take | Some `Win_move -> Over team
-              | None -> Move (m, selected, kind) )
-          | Over k -> Over k
-          | Transition t -> Transition t
+              | Some `Take | Some `Move -> Some (Do_move (m, selected))
+              | Some `Win_take | Some `Win_move -> Some (State (Over team))
+              | None -> None )
+          | Over _ -> None
         else if is_mouse_button_pressed MouseButton.Right then
           match state with
-          | Choose_move -> Choose_move
-          | Choose_ent _ -> Choose_move
-          | Move (move, _, _) -> Choose_ent move
-          | Over _ -> Transition `Restart
-          | Transition t -> Transition t
-        else state
+          | Choose_move -> None
+          | Choose_ent _ -> Some (State (Choose_move))
+          | Move (move, _, _) -> Some (State (Choose_ent move))
+          | Over _ -> Some Restart
+        else None
+        (* TODO instead of if then else this could also be an option for monadic bind *)
       in
 
-      ( match state with
-      | Transition t -> (
-          match t with
-          | `Switch move ->
-              let moves = advance move team moves in
-              loop texs tbl (Choose_move, Team.flip team) moves
-          | `Restart ->
-              let tbl, moves = restart () in
-              loop texs tbl (Choose_move, Team.flip team) moves )
-      | _ -> () );
+      (* TODO animation state *)
+
+      (* TODO gameplay state apply *)
+      (* TODO monadic bind *)
+      (* NOTE make sure that tbl here is dealt widh in correct order for animation *)
+      let tbl, state, team, moves =
+        match transition with
+        | Some t -> (
+            match t with
+            | State s -> (tbl, s, team, moves)
+            | Do_move (move, selected) ->
+                let module Coordtbl = Hashtbl.Make (Tile.Coord) in
+                (* TODO patternmatch and log *)
+                let kind, _ = Coordtbl.find tbl selected in
+                let moves = advance move team moves in
+                Coordtbl.replace tbl coord (kind, team);
+                Coordtbl.remove tbl selected;
+                (tbl, Choose_move, Team.flip team, moves)
+            | Restart ->
+                let tbl, moves = restart () in
+                (tbl, Choose_move, Team.flip team, moves) )
+        | None -> (tbl, state, team, moves)
+      in
 
       let highlights =
         match state with
@@ -363,7 +302,7 @@ let rec loop texs tbl (state, team) (moves : Moves.t) =
       let highlight_move move team =
         let layout =
           (match team with Team.Blue -> layout_blue | Red -> layout_red)
-          |> List.combine (Moves.get_all moves (Moves.key_of_team team))
+          |> List.combine (Moves.get_all moves (Team.to_moves_key team))
           |> List.Assoc.get_exn move ~eq:Move.equal
         in
         draw_rectangle_lines_ex
@@ -383,8 +322,7 @@ let rec loop texs tbl (state, team) (moves : Moves.t) =
             ("Game Over! " ^ Team.to_str k ^ " won!")
             100
             ((height / 2) - 100)
-            100 Color.black
-      | Transition _ -> () );
+            100 Color.black );
 
       end_drawing ();
       loop texs tbl (state, team) moves
