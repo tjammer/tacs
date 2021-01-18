@@ -37,24 +37,19 @@ let draw_move move layout hl =
     done
   done
 
-let layout_blue =
+let move_layouts =
   [
     ( Movekey.Blue_left,
       Tile.{ size = { x = 30; y = 30 }; origin = { x = 800; y = 450 } } );
     ( Blue_right,
       Tile.{ size = { x = 30; y = 30 }; origin = { x = 1000; y = 450 } } );
-  ]
-
-let layout_red =
-  [
     ( Movekey.Red_left,
       Tile.{ size = { x = 30; y = 30 }; origin = { x = 800; y = 100 } } );
     ( Red_right,
       Tile.{ size = { x = 30; y = 30 }; origin = { x = 1000; y = 100 } } );
+    ( Movekey.Middle,
+      Tile.{ size = { x = 30; y = 30 }; origin = { x = 900; y = 275 } } );
   ]
-
-let layout_mid =
-  Tile.{ size = { x = 30; y = 30 }; origin = { x = 900; y = 275 } }
 
 module Easings = struct
   type t = Linear | Cubic | Quad
@@ -72,11 +67,20 @@ module Easings = struct
     else (-.final /. 2.0 *. (((t -. 1.0) *. (t -. 3.0)) -. 1.0)) +. start
 end
 
-let anim_dur = 0.25
+type ent_anim = {
+  src : float * float;
+  t : float;
+  x : float;
+  y : float;
+  dur : float;
+}
 
-type ent_anim = { src : Tile.Coord.t; t : float; x : float; y : float }
-
-type move_anim = { src : float * float; t : float; layout : Tile.layout }
+type move_anim = {
+  src : float * float;
+  t : float;
+  layout : Tile.layout;
+  dur : float;
+}
 
 (* TODO this should not be here, instead a selection of mb left right?
  * or an input functor which does stuff depending on layout *)
@@ -85,12 +89,18 @@ let choose_move team mx my =
     let c = Tile.Coord.of_px mx my layout in
     inside_field c
   in
-  List.find_map
-    (fun (key, layout) -> if is_inside layout then Some key else None)
-    (match team with Team.Blue -> layout_blue | Red -> layout_red)
+  move_layouts
+  |> List.filter (fun (key, _) ->
+         match (team, key) with
+         | Team.Blue, Movekey.Blue_left | Blue, Blue_right -> true
+         | Red, Red_left | Red, Red_right -> true
+         | _ -> false)
+  |> List.find_map (fun (key, layout) ->
+         if is_inside layout then Some key else None)
 
 let setup () =
   let module Coordtbl = Hashtbl.Make (Tile.Coord) in
+  let module Movetbl = Hashtbl.Make (Movekey) in
   let open Raylib in
   init_window 1280 720 "tacs";
   set_target_fps 60;
@@ -98,14 +108,17 @@ let setup () =
   let king_blue = load_texture "assets/blue_king.png" in
   let pawn_red = load_texture "assets/red_pawn.png" in
   let king_red = load_texture "assets/red_king.png" in
+  let texs = (pawn_blue, king_blue, pawn_red, king_red) in
 
   let tbl, moves = restart Team.Blue in
 
   let ent_anims = Coordtbl.create 10 in
+  let move_anims = Movetbl.create 5 in
 
-  ((pawn_blue, king_blue, pawn_red, king_red), ent_anims, tbl, moves)
+  (texs, ent_anims, move_anims, tbl, moves)
 
-let rec loop texs ent_anims tbl (state, team) (moves : Move.t ImMoves.t) =
+let rec loop texs ent_anims move_anims tbl (state, team)
+    (moves : Move.t ImMoves.t) =
   let open Raylib in
   match window_should_close () with
   | true -> close_window ()
@@ -164,30 +177,68 @@ let rec loop texs ent_anims tbl (state, team) (moves : Move.t ImMoves.t) =
 
       (* transition renderstat *)
       (let module Coordtbl = Hashtbl.Make (Tile.Coord) in
+      let module Movetbl = Hashtbl.Make (Movekey) in
       match transition with
-      | Some (Do_move { move = _; src; dst }) ->
-          Coordtbl.replace ent_anims dst { src; t = 0.0; x = 0.0; y = 0.0 };
+      | Some (Do_move { move; src; dst }) ->
+          let ent_anim =
+            {
+              src = Tile.Coord.to_pxf src layout;
+              t = 0.0;
+              x = 0.0;
+              y = 0.0;
+              dur = 0.25;
+            }
+          in
+          Coordtbl.replace ent_anims dst ent_anim;
+
           (* TODO death anim *)
-          Coordtbl.remove ent_anims src
+          Coordtbl.remove ent_anims src;
+
+          let eq = Movekey.equal in
+          let layout = (List.Assoc.get_exn ~eq move) move_layouts in
+          let middle = (List.Assoc.get_exn ~eq Middle) move_layouts in
+          let x, y = Tile.Coord.to_pxf { x = 0; y = 0 } middle in
+          let dur = 0.3 in
+          Movetbl.replace move_anims move
+            { src = (x, y); t = 0.0; layout = middle; dur };
+          let x, y = Tile.Coord.to_pxf { x = 0; y = 0 } layout in
+          Movetbl.replace move_anims Middle
+            { src = (x, y); t = 0.0; layout; dur }
       | Some (Restart _) -> Coordtbl.clear ent_anims
       | _ -> ());
 
       (* update renderstat *)
       (let module Coordtbl = Hashtbl.Make (Tile.Coord) in
-      let fcoords coord layout =
-        Tile.Coord.to_px coord layout |> Pair.map_same float_of_int
-      in
       Coordtbl.filter_map_inplace
-        (fun coord { src; t; x = _; y = _ } ->
-          if t >=. anim_dur then None
+        (fun coord { src = sx, sy; t; x = _; y = _; dur } ->
+          if t >=. dur then None
           else
             let open Easings in
-            let sx, sy = fcoords src layout in
-            let fx, fy = fcoords coord layout in
-            let x = quad_in_out ~t ~start:sx ~final:fx ~dur:anim_dur in
-            let y = quad_in_out ~t ~start:sy ~final:fy ~dur:anim_dur in
-            Some { src; t = t +. (1.0 /. 60.0); x; y })
+            let fx, fy = Tile.Coord.to_pxf coord layout in
+            let x = quad_in_out ~t ~start:sx ~final:fx ~dur in
+            let y = quad_in_out ~t ~start:sy ~final:fy ~dur in
+            Some { src = (sx, sy); t = t +. (1.0 /. 60.0); x; y; dur })
         ent_anims);
+
+      (let module Movetbl = Hashtbl.Make (Movekey) in
+      Movetbl.filter_map_inplace
+        (fun move { src = sx, sy; t; layout = _; dur } ->
+          if t >=. dur then None
+          else
+            let eq = Movekey.equal in
+            let open Easings in
+            let layout = (List.Assoc.get_exn ~eq move) move_layouts in
+            let fx, fy = Tile.Coord.to_pxf { x = 0; y = 0 } layout in
+            let x = quad_in_out ~t ~start:sx ~final:fx ~dur in
+            let y = cubic_in ~t ~start:sy ~final:fy ~dur in
+            let layout =
+              {
+                layout with
+                origin = { x = int_of_float x; y = int_of_float y };
+              }
+            in
+            Some { src = (sx, sy); t = t +. (1.0 /. 60.0); layout; dur })
+        move_anims);
 
       let highlights =
         match state with
@@ -253,25 +304,30 @@ let rec loop texs ent_anims tbl (state, team) (moves : Move.t ImMoves.t) =
           let x, y =
             match ImCoords.find_opt ent_anims pos with
             | None -> Tile.Coord.to_px pos layout |> Pair.map_same Float.of_int
-            | Some { src = _; t = _; x; y } -> (x, y)
+            | Some anim -> (anim.x, anim.y)
           in
           draw_texture_ex tex (Vector2.create x y) 0.0 scale Color.white)
         tbl;
 
       List.iter
-        (fun (move, layout) ->
-          let move = ImMoves.find_opt moves move |> Option.get_exn in
-          draw_move move layout Color.skyblue)
-        layout_blue;
-      List.iter
-        (fun (move, layout) ->
-          let move = ImMoves.find_opt moves move |> Option.get_exn in
-          draw_move move layout Color.orange)
-        layout_red;
-      draw_move
-        (ImMoves.find_opt moves Movekey.Middle |> Option.get_exn)
-        layout_mid
-        (match team with Blue -> Color.skyblue | Red -> Color.orange);
+        (fun (movekey, layout) ->
+          let layout =
+            match ImMoves.find_opt move_anims movekey with
+            | Some anim -> anim.layout
+            | None -> layout
+          in
+          let move = ImMoves.find_opt moves movekey |> Option.get_exn in
+          let color =
+            match movekey with
+            | Blue_left | Blue_right -> Color.skyblue
+            | Red_left | Red_right -> Color.orange
+            | Middle ->
+                fade
+                  (match team with Blue -> Color.skyblue | Red -> Color.orange)
+                  0.5
+          in
+          draw_move move layout color)
+        move_layouts;
 
       let highlight_ent ent =
         let x, y = Tile.Coord.to_px ent layout in
@@ -282,10 +338,9 @@ let rec loop texs ent_anims tbl (state, team) (moves : Move.t ImMoves.t) =
           line_thickness Color.yellow
       in
 
-      let highlight_move move team =
+      let highlight_move move =
         let layout =
-          (match team with Team.Blue -> layout_blue | Red -> layout_red)
-          |> List.Assoc.get_exn move ~eq:Movekey.equal
+          move_layouts |> List.Assoc.get_exn move ~eq:Movekey.equal
         in
         draw_rectangle_lines_ex
           (recti layout.origin.x layout.origin.y (layout.size.x * 5)
@@ -295,9 +350,9 @@ let rec loop texs ent_anims tbl (state, team) (moves : Move.t ImMoves.t) =
       in
       ( match state with
       | Choose_move -> ()
-      | Choose_ent move -> highlight_move move team
+      | Choose_ent move -> highlight_move move
       | Move (move, selected) ->
-          highlight_move move team;
+          highlight_move move;
           highlight_ent selected
       | Over k ->
           draw_text
@@ -307,8 +362,8 @@ let rec loop texs ent_anims tbl (state, team) (moves : Move.t ImMoves.t) =
             100 Color.black );
 
       end_drawing ();
-      loop texs ent_anims tbl (state, team) moves
+      loop texs ent_anims move_anims tbl (state, team) moves
 
 let () =
-  let texs, ent_anims, tbl, moves = setup () in
-  loop texs ent_anims tbl (Choose_move, Blue) moves
+  let texs, ent_anims, move_anims, tbl, moves = setup () in
+  loop texs ent_anims move_anims tbl (Choose_move, Blue) moves

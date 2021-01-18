@@ -45,7 +45,13 @@ module Moves = struct
     let tbl = Movetbl.create 5 in
 
     List.iter2
-      (fun key value -> Movetbl.add tbl key value)
+      (fun key value ->
+        let move =
+          match key with
+          | Movekey.Red_left | Red_right -> Move.flip value
+          | Blue_left | Blue_right | Middle -> value
+        in
+        Movetbl.add tbl key move)
       [ Movekey.Blue_left; Blue_right; Red_left; Red_right; Middle ]
       (List.take 5 moves);
 

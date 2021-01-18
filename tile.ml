@@ -21,5 +21,10 @@ module Coord = struct
     let y = (coord.y * layout.size.y) + layout.origin.y in
     (x, y)
 
+    let to_pxf coord layout =
+    let x = (coord.x * layout.size.x) + layout.origin.x in
+    let y = (coord.y * layout.size.y) + layout.origin.y in
+    (x, y) |> Pair.map_same float_of_int
+
   let hash = Hashtbl.hash
 end
