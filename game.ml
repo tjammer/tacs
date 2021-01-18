@@ -1,10 +1,11 @@
 open Containers
 open Moves
 module ImCoords = Helpers.ImmuHashtbl.Make (Hashtbl.Make (Tile.Coord))
+module ImMoves = Helpers.ImmuHashtbl.Make (Hashtbl.Make (Movekey))
 
 let ( let* ) = Option.bind
 
-type kind = Pawn | King [@@deriving eq, show]
+type kind = Pawn | King [@@deriving eq]
 
 module Team = struct
   type t = Blue | Red [@@deriving eq]
@@ -16,17 +17,15 @@ module Team = struct
   let win_field = function
     | Blue -> Tile.{ x = 2; y = 0 }
     | Red -> { x = 2; y = 4 }
-
-  let to_moves_key = function Blue -> Moves.(Blue) | Red -> Red
 end
 
 type state =
   | Choose_move
-  | Choose_ent of Move.t
-  | Move of Move.t * Tile.Coord.t
+  | Choose_ent of Movekey.t
+  | Move of Movekey.t * Tile.Coord.t
   | Over of Team.t
 
-type do_move = { move : Move.t; src : Tile.Coord.t; dst : Tile.Coord.t }
+type do_move = { move : Movekey.t; src : Tile.Coord.t; dst : Tile.Coord.t }
 
 type transition = Do_move of do_move | Restart of Team.t | State of state
 
@@ -52,20 +51,12 @@ let outcome_of_selected tbl (move, selected) team dst =
         else Some `Move
   else None
 
-let advance move team moves =
-  let team = Team.to_moves_key team in
-  let eq = Moves.equal_key in
-  let middle = Moves.get_all moves Middle |> List.hd in
-  let moves =
-    List.Assoc.update ~eq
-      ~f:(function
-        | Some [ a; b ] ->
-            Some (if Move.equal a move then [ middle; b ] else [ a; middle ])
-        | Some a -> Some a
-        | None -> None)
-      team moves
-  in
-  List.Assoc.set ~eq Middle [ Move.flip move ] moves
+let advance (move : Movekey.t) (moves : Move.t ImMoves.t) =
+  let module Movetbl = Hashtbl.Make (Movekey) in
+  let middle = ImMoves.find_opt moves Movekey.Middle |> Option.get_exn in
+  let value = ImMoves.find_opt moves move |> Option.get_exn in
+  Movetbl.replace moves Movekey.Middle (Move.flip value);
+  Movetbl.replace moves move middle
 
 let copy_tbl ~src ~dst =
   (* clears dst *)
@@ -90,16 +81,14 @@ let restart starting_team =
   Coordtbl.add tbl { Tile.x = 4; y = 0 } (Pawn, Red);
 
   let moves =
-    Moves.distribute_initial all_moves
-    |> fun m ->
-    if Team.equal starting_team Team.Red then
-      List.map
-        (fun (key, move) ->
-          match key with
-          | Moves.Middle -> (key, List.map Move.flip move)
-          | Red | Blue -> (key, move))
-        m
-    else m
+    let module Movetbl = Hashtbl.Make (Movekey) in
+    let m = Moves.distribute_initial all_moves in
+
+    ( if Team.equal starting_team Team.Red then
+      match Movetbl.find_opt m Movekey.Middle with
+      | Some move -> Movetbl.replace m Movekey.Middle (Move.flip move)
+      | None -> (* TODO log *) () );
+    m
   in
 
   (tbl, moves)

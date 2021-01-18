@@ -23,12 +23,18 @@ module Move = struct
   let flip = List.map (fun Tile.{ x; y } -> Tile.{ x = -x; y = -y })
 end
 
-module Moves = struct
-  type key = Blue | Red | Middle [@@deriving eq]
+module Movekey = struct
+  type t = Blue_left | Blue_right | Middle | Red_left | Red_right
+  [@@deriving eq]
 
-  type t = (key * Move.t list) list
+  let hash = Hashtbl.hash
+end
+
+module Moves = struct
+  type t = Move.t list list
 
   let distribute_initial moves =
+    let module Movetbl = Hashtbl.Make (Movekey) in
     Random.self_init ();
     let moves =
       Random.get_state ()
@@ -36,16 +42,14 @@ module Moves = struct
            (Random.int (List.length moves))
       |> List.map (fun i -> List.nth moves i)
     in
+    let tbl = Movetbl.create 5 in
 
-    let blue, moves = List.take_drop 2 moves in
-    let red, moves = List.take_drop 2 moves in
-    let middle = List.take 1 moves in
-    let red = List.map (fun m -> Move.flip m) red in
-    [ (Blue, blue); (Red, red); (Middle, middle) ]
+    List.iter2
+      (fun key value -> Movetbl.add tbl key value)
+      [ Movekey.Blue_left; Blue_right; Red_left; Red_right; Middle ]
+      (List.take 5 moves);
 
-  let get_all moves key = List.Assoc.get_exn ~eq:equal_key key moves
-
-  let get_middle moves = get_all moves Middle |> List.hd
+    tbl
 end
 
 let mantis = [ { Tile.x = 0; y = 1 }; { x = -1; y = -1 }; { x = 1; y = -1 } ]

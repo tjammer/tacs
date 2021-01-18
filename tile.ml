@@ -7,8 +7,7 @@ type layout = { size : vec2; origin : vec2 }
 module Coord = struct
   type t = vec2 [@@deriving eq]
 
-  let add a b =
-    {x = a.x + b.x ; y = a.y + b.y}
+  let add a b = { x = a.x + b.x; y = a.y + b.y }
 
   let of_px x y layout =
     {
