@@ -84,7 +84,7 @@ type move_anim = {
 
 (* TODO this should not be here, instead a selection of mb left right?
  * or an input functor which does stuff depending on layout *)
-let choose_move team mx my =
+let get_move_input team mx my =
   let is_inside layout =
     let c = Tile.Coord.of_px mx my layout in
     inside_field c
@@ -96,7 +96,15 @@ let choose_move team mx my =
          | Red, Red_left | Red, Red_right -> true
          | _ -> false)
   |> List.find_map (fun (key, layout) ->
-         if is_inside layout then Some key else None)
+         if is_inside layout then
+           let input =
+             match key with
+             | Movekey.Blue_left | Red_left -> Some Left
+             | Blue_right | Red_right -> Some Right
+             | Middle -> None
+           in
+           input
+         else None)
 
 let setup () =
   let module Coordtbl = Hashtbl.Make (Tile.Coord) in
@@ -127,8 +135,13 @@ let rec loop texs ent_anims move_anims tbl (state, team)
       let mx, my = Vector2.(x mpos, y mpos) in
 
       let input =
-        let coord = Tile.Coord.of_px mx my layout in
-        if is_mouse_button_pressed MouseButton.Left then Some (Select coord)
+        if is_mouse_button_pressed MouseButton.Left then
+          let select =
+            match get_move_input team mx my with
+            | Some inp -> `Move inp
+            | None -> `Ent (Tile.Coord.of_px mx my layout)
+          in
+          Some (Select select)
         else if is_mouse_button_pressed MouseButton.Right then Some Deselect
         else None
       in
@@ -136,14 +149,15 @@ let rec loop texs ent_anims move_anims tbl (state, team)
       let transition =
         let* input = input in
         match (input, state) with
-        | Select _, Choose_move ->
-            let* move = choose_move team mx my in
+        | Select sel, Choose_move ->
+            let* move = choose_move team sel in
             Some (State (Choose_ent move))
-        | Select coord, Choose_ent move ->
-            let* _ = choose_ent tbl coord team in
+        | Select sel, Choose_ent move ->
+            let* coord = choose_ent tbl team sel in
             Some (State (Move (move, coord)))
-        | Select coord, Move (move, src) -> (
+        | Select sel, Move (move, src) -> (
             let module Coordtbl = Hashtbl.Make (Tile.Coord) in
+            let* coord = match sel with `Ent c -> Some c | `Move _ -> None in
             let* move_ = ImMoves.find_opt moves move in
             let* outcome = outcome_of_selected tbl (move_, src) team coord in
             match outcome with
@@ -316,7 +330,7 @@ let rec loop texs ent_anims move_anims tbl (state, team)
             | Some anim -> anim.layout
             | None -> layout
           in
-          let move = ImMoves.find_opt moves movekey |> Option.get_exn in
+          let move = ImMoves.find_exn moves movekey in
           let color =
             match movekey with
             | Blue_left | Blue_right -> Color.skyblue
