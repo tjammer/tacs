@@ -25,15 +25,19 @@ type state =
   | Move of Movekey.t * Tile.Coord.t
   | Over of Team.t
 
-type do_move = { move : Movekey.t; src : Tile.Coord.t; dst : Tile.Coord.t }
+module Transition = struct
+  type do_move = { move : Movekey.t; src : Tile.Coord.t; dst : Tile.Coord.t }
 
-type transition = Do_move of do_move | Restart of Team.t | State of state
+  type t = Do_move of do_move | Restart of Team.t | State of state
+end
 
-type move_select = Left | Right
+module Input = struct
+  type move_select = Left | Right
 
-type input =
-  | Select of [ `Ent of Tile.Coord.t | `Move of move_select ]
-  | Deselect
+  type t =
+    | Select of [ `Ent of Tile.Coord.t | `Move of move_select ]
+    | Deselect
+end
 
 let choose_ent tbl team = function
   | `Ent coord ->
@@ -43,7 +47,7 @@ let choose_ent tbl team = function
 
 let choose_move team = function
   | `Ent _ -> None
-  | `Move Left ->
+  | `Move Input.Left ->
       Some (match team with Team.Blue -> Movekey.Blue_left | Red -> Red_left)
   | `Move Right -> Some (match team with Blue -> Blue_right | Red -> Red_right)
 
@@ -62,19 +66,28 @@ let outcome_of_selected tbl (move, selected) team dst =
     | None -> if winning_move then Some `Win_move else Some `Move
   else None
 
-let advance (move : Movekey.t) (moves : Move.t ImMoves.t) =
-  let module Movetbl = Hashtbl.Make (Movekey) in
-  let middle = ImMoves.find_exn moves Movekey.Middle in
-  let value = ImMoves.find_exn moves move in
-  Movetbl.replace moves Movekey.Middle (Move.flip value);
-  Movetbl.replace moves move middle
-
-let copy_tbl ~src ~dst =
-  (* clears dst *)
-  let module Coordtbl = Hashtbl.Make (Tile.Coord) in
-  Coordtbl.clear dst;
-  Coordtbl.add_seq dst (Coordtbl.to_seq src);
-  ()
+let transitions input tbl state team moves =
+  let* input = input in
+  let open Transition in
+  match (input, state) with
+  | Input.Select sel, Choose_move ->
+      let* move = choose_move team sel in
+      Some (State (Choose_ent move))
+  | Select sel, Choose_ent move ->
+      let* coord = choose_ent tbl team sel in
+      Some (State (Move (move, coord)))
+  | Select sel, Move (move, src) -> (
+      let* coord = match sel with `Ent c -> Some c | `Move _ -> None in
+      let* move_ = ImMoves.find_opt moves move in
+      let* outcome = outcome_of_selected tbl (move_, src) team coord in
+      match outcome with
+      | `Take | `Move -> Some (Do_move { move; src; dst = coord })
+      | `Win_take | `Win_move -> Some (State (Over (Team.flip team))) )
+  | Select _, Over _ -> None
+  | Deselect, Choose_move -> None
+  | Deselect, Choose_ent _ -> Some (State Choose_move)
+  | Deselect, Move (move, _) -> Some (State (Choose_ent move))
+  | Deselect, Over team -> Some (Restart team)
 
 let restart starting_team =
   let module Coordtbl = Hashtbl.Make (Tile.Coord) in
@@ -103,3 +116,37 @@ let restart starting_team =
   in
 
   (tbl, moves)
+
+module Mut = struct
+  module Movetbl = Hashtbl.Make (Movekey)
+  module Coordtbl = Hashtbl.Make (Tile.Coord)
+
+  let advance move moves =
+    let middle = ImMoves.find_exn moves Movekey.Middle in
+    let value = ImMoves.find_exn moves move in
+    Movetbl.replace moves Movekey.Middle (Move.flip value);
+    Movetbl.replace moves move middle
+
+  let copy_tbl ~src ~dst =
+    (* clears dst *)
+    let module Coordtbl = Hashtbl.Make (Tile.Coord) in
+    Coordtbl.clear dst;
+    Coordtbl.add_seq dst (Coordtbl.to_seq src);
+    ()
+
+  let apply transitions tbl state team moves =
+    let open Transition in
+    match transitions with
+    | Some (State s) -> (s, team, moves)
+    | Some (Do_move { move; src; dst }) ->
+        let ent = Coordtbl.find tbl src in
+        let () = advance move moves in
+        Coordtbl.replace tbl dst ent;
+        Coordtbl.remove tbl src;
+        (Choose_move, Team.flip team, moves)
+    | Some (Restart team) ->
+        let src, moves = restart team in
+        copy_tbl ~src ~dst:tbl;
+        (Choose_move, team, moves)
+    | None -> (state, team, moves)
+end

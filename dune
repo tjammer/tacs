@@ -2,4 +2,4 @@
  (name tacs)
  (preprocess
   (pps ppx_deriving.eq))
- (libraries containers raylib))
+ (libraries containers raylib lwt lwt.unix unix))
