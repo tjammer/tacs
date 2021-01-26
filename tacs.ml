@@ -13,7 +13,7 @@ let setup team =
   init_window 1280 720 "tacs";
   set_target_fps 60;
 
-  let clientstate = Client.init_state () in
+  let clientstate = Client.init_state team in
   let gamestate = Game.(restart team) in
 
   (clientstate, gamestate)
@@ -32,7 +32,7 @@ let rec loop clientstate (gamestate : Game.State.t) tc =
         | Fail _ -> tic2 ()
       in
 
-      let input = Client.input gamestate.curr_team in
+      let input = Client.input clientstate gamestate.curr_team in
       let trans = Game.transitions input gamestate in
 
       let gamestate = Game.Mut.apply trans gamestate in
@@ -53,6 +53,6 @@ let rec loop clientstate (gamestate : Game.State.t) tc =
 let () =
   Lwt_main.run
     (let ( let* ) = Lwt.bind in
-     let* clientstate, gamestate = Lwt.return (setup Game.Team.Blue) in
+     let* clientstate, gamestate = Lwt.return (setup Game.Team.Red) in
      let tc = tic2 () in
      loop clientstate gamestate tc)
