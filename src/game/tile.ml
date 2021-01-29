@@ -1,11 +1,12 @@
 open Containers
+open Sexplib0.Sexp_conv
 
-type vec2 = { x : int; y : int } [@@deriving eq]
+type vec2 = { x : int; y : int } [@@deriving eq, sexp]
 
 type layout = { size : vec2; origin : vec2 }
 
 module Coord = struct
-  type t = vec2 [@@deriving eq]
+  type t = vec2 [@@deriving eq, sexp]
 
   let add a b = { x = a.x + b.x; y = a.y + b.y }
 

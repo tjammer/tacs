@@ -1,6 +1,8 @@
 open Containers
-module ImCoords = Helpers.ImmuHashtbl.Make (Hashtbl.Make (Tile.Coord))
-module ImMoves = Helpers.ImmuHashtbl.Make (Hashtbl.Make (Moves.Movekey))
+module ImCoords = Game.ImCoords
+module ImMoves = Game.ImMoves
+module Moves = Game.Moves
+module Tile = Game.Tile
 
 type ent_anim = {
   src : float * float;
@@ -22,7 +24,7 @@ module State = struct
 
   type t = {
     texs : tex * tex * tex * tex;
-    layout : Tile.layout;
+    layout : Game.Tile.layout;
     move_layouts : (Moves.Movekey.t * Tile.layout) list;
     pov_team : Game.Team.t;
     ent_anims : ent_anim ImCoords.t;
@@ -88,8 +90,7 @@ module Mut = struct
   module Coordtbl = Hashtbl.Make (Tile.Coord)
   module Movetbl = Hashtbl.Make (Moves.Movekey)
 
-  let transitions cs transitions =
-    (* TODO maybe return instead of mutating? *)
+  let apply cs transitions =
     let open Game.Transition in
     match transitions with
     | Some (Do_move { move; src; dst }) ->
@@ -116,12 +117,9 @@ module Mut = struct
           { src = (x, y); t = 0.0; layout = middle; dur };
         let x, y = Tile.Coord.to_pxf { x = 0; y = 0 } layout in
         Movetbl.replace cs.move_anims Middle
-          { src = (x, y); t = 0.0; layout; dur };
-        cs
-    | Some (Restart _) ->
-        Coordtbl.clear cs.ent_anims;
-        cs
-    | _ -> cs
+          { src = (x, y); t = 0.0; layout; dur }
+    | Some (Restart _) -> Coordtbl.clear cs.ent_anims
+    | _ -> ()
 
   let update_renderstate cs =
     Coordtbl.filter_map_inplace
@@ -149,8 +147,7 @@ module Mut = struct
             { layout with origin = { x = int_of_float x; y = int_of_float y } }
           in
           Some { src = (sx, sy); t = t +. (1.0 /. 60.0); layout; dur })
-      cs.move_anims;
-    cs
+      cs.move_anims
 end
 
 let recti x y width height =

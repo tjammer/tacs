@@ -1,5 +1,0 @@
-(executable
- (name tacs)
- (preprocess
-  (pps ppx_deriving.eq))
- (libraries containers raylib lwt lwt.unix unix))

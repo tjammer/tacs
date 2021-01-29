@@ -1,14 +1,17 @@
-open Containers
-open Moves
 module ImCoords = Helpers.ImmuHashtbl.Make (Hashtbl.Make (Tile.Coord))
-module ImMoves = Helpers.ImmuHashtbl.Make (Hashtbl.Make (Movekey))
+module ImMoves = Helpers.ImmuHashtbl.Make (Hashtbl.Make (Moves.Movekey))
+module Tile = Tile
+module Moves = Moves
+open Moves
+open Containers
+open Sexplib0.Sexp_conv
 
 let ( let* ) = Option.bind
 
 type kind = Pawn | King [@@deriving eq]
 
 module Team = struct
-  type t = Blue | Red [@@deriving eq]
+  type t = Blue | Red [@@deriving eq, sexp]
 
   let flip = function Blue -> Red | Red -> Blue
 
@@ -41,11 +44,12 @@ module Transition = struct
 end
 
 module Input = struct
-  type move_select = Left | Right
+  type move_select = Left | Right [@@deriving sexp]
 
   type t =
     | Select of [ `Ent of Tile.Coord.t | `Move of move_select ]
     | Deselect
+  [@@deriving sexp]
 end
 
 let choose_ent tbl team = function
@@ -156,4 +160,15 @@ module Mut = struct
         { gs with curr_team = Team.flip gs.curr_team; state = Choose_move }
     | Some (Restart team) -> restart team
     | None -> gs
+end
+
+module Message = struct
+  type start = { starting : Team.t; move_seed : int } [@@deriving sexp]
+
+  type t =
+    | Search
+    | Found of Team.t
+    | Start of start
+    | Move of Input.t
+  [@@deriving sexp]
 end
