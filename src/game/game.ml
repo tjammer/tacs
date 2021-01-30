@@ -4,7 +4,6 @@ module Tile = Tile
 module Moves = Moves
 open Moves
 open Containers
-open Sexplib0.Sexp_conv
 
 let ( let* ) = Option.bind
 
@@ -104,7 +103,7 @@ let transitions input gs =
   | Deselect, Move (move, _) -> Some (State (Choose_ent move))
   | Deselect, Over team -> Some (Restart team)
 
-let restart starting_team =
+let init starting_team seed =
   let module Coordtbl = Hashtbl.Make (Tile.Coord) in
   let ents = Coordtbl.create 10 in
   Coordtbl.add ents { Tile.x = 0; y = 4 } (Pawn, Team.Blue);
@@ -121,7 +120,7 @@ let restart starting_team =
 
   let moves =
     let module Movetbl = Hashtbl.Make (Movekey) in
-    let m = Moves.distribute_initial all_moves in
+    let m = Moves.distribute_initial all_moves seed in
 
     ( if Team.equal starting_team Team.Red then
       match Movetbl.find_opt m Movekey.Middle with
@@ -158,17 +157,6 @@ module Mut = struct
         Coordtbl.replace gs.ents dst ent;
         Coordtbl.remove gs.ents src;
         { gs with curr_team = Team.flip gs.curr_team; state = Choose_move }
-    | Some (Restart team) -> restart team
+    | Some (Restart team) -> init team 0
     | None -> gs
-end
-
-module Message = struct
-  type start = { starting : Team.t; move_seed : int } [@@deriving sexp]
-
-  type t =
-    | Search
-    | Found of Team.t
-    | Start of start
-    | Move of Input.t
-  [@@deriving sexp]
 end

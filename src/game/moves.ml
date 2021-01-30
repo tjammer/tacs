@@ -33,9 +33,9 @@ end
 module Moves = struct
   type t = Move.t list list
 
-  let distribute_initial moves =
+  let distribute_initial moves seed =
     let module Movetbl = Hashtbl.Make (Movekey) in
-    Random.self_init ();
+    Random.init seed;
     let moves =
       Random.get_state ()
       |> Random.sample_without_duplicates ~cmp:compare 5

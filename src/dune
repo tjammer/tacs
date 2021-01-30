@@ -1,3 +1,3 @@
 (executable
  (name tacs)
-  (libraries raylib lwt.unix game client))
+  (libraries raylib lwt.unix game client msg))
