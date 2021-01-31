@@ -77,14 +77,11 @@ let rec play gs p1 p2 =
       return_unit
   | None ->
       print_endline "could not parse or disconnect. either way we drop both lol";
-      let  oc =
-        if Game.Team.equal player.team p1.team then ( p2.oc)
-        else ( p1.oc)
-      in
+      let oc = if Game.Team.equal player.team p1.team then p2.oc else p1.oc in
       let* () = Lwt_io.close oc in
       return_unit
 
-let max_seed = 1 lsl 30 - 1
+let max_seed = (1 lsl 30) - 1
 
 let initial_connection conn ~ic ~oc =
   let* msg = Lwt_io.read_line_opt ic in

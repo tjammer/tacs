@@ -1,4 +1,5 @@
 (library
  (name msg)
- (preprocess (pps ppx_deriving.eq ppx_sexp_conv))
+ (preprocess
+  (pps ppx_deriving.eq ppx_sexp_conv))
  (libraries game sexplib))

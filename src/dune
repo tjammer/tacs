@@ -1,3 +1,5 @@
 (executable
  (name tacs)
-  (libraries raylib lwt.unix game client msg))
+ (public_name tacs)
+ (package tacs)
+ (libraries raylib lwt.unix game client msg))
