@@ -40,6 +40,7 @@ let rec loop ic oc msg clientstate gamestate =
               | Some (Move input) -> (Some input, new_msg)
               | _ -> (None, new_msg) )
           | Return None | Fail _ ->
+              print_endline "cancel?";
               close_window ();
               (None, msg)
           | Sleep -> (None, msg)
