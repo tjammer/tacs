@@ -1,0 +1,45 @@
+name: build
+
+on:
+  - push
+  - pull_request
+
+jobs:
+  build-and-test:
+    name: build
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - macos-latest
+          - ubuntu-latest
+          - windows-latest
+        ocaml-version:
+          - 4.11.1
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Use OCaml ${{ matrix.ocaml-version }}
+        uses: avsm/setup-ocaml@v1
+        with:
+          ocaml-version: ${{ matrix.ocaml-version }}
+
+      - run: opam pin -n .
+
+      - run: opam depext tacs
+
+      - run: opam install . --deps-only
+
+      - run: opam exec dune build
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: tacs ${{ matrix.os }}
+          path: |
+            _build/default/src/tacs.exe
+            _build/default/src/server/server.exe

@@ -20,7 +20,7 @@ type move_anim = {
 }
 
 module State = struct
-  type tex = Raylib.Texture.t
+  type tex = Raylib.Texture2D.t
 
   type t = {
     texs : tex * tex * tex * tex;
@@ -222,7 +222,7 @@ let draw cs gs =
   let pawn_blue, king_blue, pawn_red, king_red = State.(cs.texs) in
   let scale =
     (cs.layout.size.x |> abs |> Float.of_int)
-    /. Float.of_int (Texture.width pawn_blue)
+    /. Float.of_int (Texture2D.width pawn_blue)
   in
 
   (* draw only ents which are not animated *)
