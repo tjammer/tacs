@@ -16,6 +16,12 @@ module Board = struct
   type t = Game.State.t * Player.t * unit Lwt.t
 end
 
+let board_wait = ref []
+
+let () = Random.self_init ()
+
+let rst = Random.get_state ()
+
 let create_socket () =
   let open Lwt_unix in
   let sock = socket PF_INET SOCK_STREAM 0 in
@@ -24,20 +30,8 @@ let create_socket () =
   listen sock 10;
   return sock
 
-let board_wait = ref []
-
-(* TODO hashtbl gamestate which we mutate *)
-
-(* match Sexplib.Sexp.parse msg with
- * | Done (sexp, _) ->
- *     let msg = Msg.t_of_sexp sexp in
- *     Some msg
- * | Cont _ ->
- *     print_endline @@ "could not parse sexp " ^ msg;
- *     None *)
-
-let start_game oc1 oc2 move_seed =
-  let msg = Msg.string_of_t @@ Start { starting = Game.Team.Blue; move_seed } in
+let start_game oc1 oc2 starting move_seed =
+  let msg = Msg.string_of_t @@ Start { starting; move_seed } in
   let m1 = Lwt_io.write_line oc1 msg in
   let m2 = Lwt_io.write_line oc2 msg in
   Lwt.join [ m1; m2 ]
@@ -92,6 +86,8 @@ let rec play gs p1 p2 =
        * let* () = Lwt.join [ ic; oc ] in *)
       return_unit
 
+let max_seed = 1 lsl 30 - 1
+
 let initial_connection conn ~ic ~oc =
   let* msg = Lwt_io.read_line_opt ic in
   match Option.bind msg (fun msg -> Msg.parse msg) with
@@ -100,26 +96,28 @@ let initial_connection conn ~ic ~oc =
       match !board_wait with
       | [] ->
           (* first player *)
-          let team = Game.Team.Blue in
-          let gamestate = Game.init team 0 in
-
+          let team = List.nth [ Game.Team.Blue; Red ] @@ Random.int 2 in
           let ret = Msg.string_of_t @@ Found team in
           let* () = Lwt_io.write_line oc ret in
           let player = { Player.team; conn; ic; oc } in
           let wait_p = wait player in
-          board_wait := [ (gamestate, player, wait_p) ];
+          board_wait := [ (player, wait_p) ];
           return_unit
-      | (gamestate, player1, wait) :: _ ->
-          let team = Game.Team.flip gamestate.curr_team in
+      | (player1, wait) :: _ ->
           (* TODO mutex *)
           board_wait := [];
           (* cancel first player promise to handle both in play () *)
           Lwt.cancel wait;
 
+          let team = Game.Team.flip player1.team in
           let ret = Msg.string_of_t @@ Found team in
           let* () = Lwt_io.write_line oc ret in
           let player2 = { Player.team; conn; ic; oc } in
-          let* () = start_game player1.oc player2.oc 0 in
+
+          let seed = Random.int max_seed in
+          let start_team = List.nth [ Game.Team.Blue; Red ] @@ Random.int 2 in
+          let gamestate = Game.init team seed in
+          let* () = start_game player1.oc player2.oc start_team seed in
           play gamestate player1 player2 )
   | Some (Start _) | Some (Move _) | Some (Found _) ->
       print_endline "unexpected message in 1st conn";

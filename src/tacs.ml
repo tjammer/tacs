@@ -82,9 +82,9 @@ let rec wait_for_other ic oc msg clientstate =
       | Sleep ->
           begin_drawing ();
           clear_background Color.raywhite;
-          draw_text "waiting for other player..." 100
+          draw_text "waiting for other player..." 70
             ((get_screen_height () / 2) - 100)
-            100 Color.black;
+            90 Color.black;
           end_drawing ();
           let* () = Lwt_unix.sleep 0.0 in
           wait_for_other ic oc msg clientstate )
