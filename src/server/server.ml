@@ -101,7 +101,7 @@ let initial_connection conn ~ic ~oc =
           let player2 = { Player.team; conn; ic; oc } in
 
           let seed = Random.int max_seed in
-          let start_team = List.nth [ Game.Team.Blue; Red ] @@ Random.int 2 in
+          let start_team = Game.Team.Blue in
           let gamestate = Game.init start_team seed in
           start_game player1.oc player2.oc start_team seed >>= fun () ->
           play gamestate player1 player2 )
