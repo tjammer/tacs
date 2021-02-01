@@ -121,7 +121,7 @@ let rec wait_connect ic oc msg =
 let connect () =
   let open Lwt_unix in
   let sock = socket PF_INET SOCK_STREAM 0 in
-  let addr = ADDR_INET (Unix.inet_addr_of_string "192.168.0.101", 9000) in
+  let addr = ADDR_INET ((Unix.gethostbyname "nils.cc").h_addr_list.(0), 9000) in
   (* TODO this should also loop  *)
   let* () = connect sock addr in
   let oc = Lwt_io.of_fd ~mode:Lwt_io.Output sock in
@@ -142,20 +142,4 @@ let rec get_pong ic oc =
       get_pong ic oc
   | None -> failwith "connection failed"
 
-let () =
-  (* Lwt_main.run
-   *   (let ( let* ) = Lwt.bind in
-   *    setup_window ();
-   *    let* clientstate = Lwt.return (Client.init_state Game.Team.Blue) in
-   *    let gamestate = Game.restart Game.Team.Blue in
-   *
-   *    let open Lwt_unix in
-   *    let sock = socket PF_INET SOCK_STREAM 0 in
-   *    let addr = ADDR_INET (Unix.inet_addr_of_string "192.168.0.101", 9000) in
-   *    let* () = connect sock addr in
-   *    let oc = Lwt_io.of_fd ~mode:Lwt_io.Output sock in
-   *    (\* let ic = Lwt_io.of_fd ~mode:Lwt_io.Input sock in *\)
-   *    let* () = Lwt_io.write_line oc "hello" in
-   *    (\* let* () = get_pong ic oc in *\)
-   *    loop clientstate gamestate) *)
-  Lwt_main.run (connect ())
+let () = Lwt_main.run (connect ())
