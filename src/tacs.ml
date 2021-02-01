@@ -1,12 +1,8 @@
-let ( let* ) = Lwt.bind
+open Lwt.Infix
 
 let width = 1280
 
 let height = 720
-
-let tic2 () =
-  let* () = Lwt_unix.sleep 1.0 in
-  Lwt_io.printl "tix%!"
 
 let setup_window () =
   let open Raylib in
@@ -59,8 +55,7 @@ let rec loop ic oc msg clientstate gamestate =
       end_drawing ();
 
       (* Need this for the lwt scheduler *)
-      let* () = Lwt_unix.sleep 0.0 in
-      loop ic oc msg clientstate gamestate
+      Lwt_unix.sleep 0.0 >>= fun () -> loop ic oc msg clientstate gamestate
 
 let rec wait_for_other ic oc msg clientstate =
   let open Raylib in
@@ -87,8 +82,8 @@ let rec wait_for_other ic oc msg clientstate =
             ((get_screen_height () / 2) - 100)
             90 Color.black;
           end_drawing ();
-          let* () = Lwt_unix.sleep 0.0 in
-          wait_for_other ic oc msg clientstate )
+          Lwt_unix.sleep 0.0 >>= fun () -> wait_for_other ic oc msg clientstate
+      )
 
 let rec wait_connect ic oc msg =
   let open Raylib in
@@ -106,8 +101,7 @@ let rec wait_connect ic oc msg =
               let clientstate = Client.init_state team in
               wait_for_other ic oc new_msg clientstate
           | _ -> wait_connect ic oc new_msg )
-      | Return None -> Lwt.return_unit
-      | Fail _ -> Lwt.return_unit
+      | Return None | Fail _ -> Lwt.return_unit
       | Sleep ->
           begin_drawing ();
           clear_background Color.raywhite;
@@ -115,31 +109,26 @@ let rec wait_connect ic oc msg =
             ((get_screen_height () / 2) - 100)
             100 Color.black;
           end_drawing ();
-          let* () = Lwt_unix.sleep 0.0 in
-          wait_connect ic oc msg )
+          Lwt_unix.sleep 0.0 >>= fun () -> wait_connect ic oc msg )
 
 let connect () =
   let open Lwt_unix in
   let sock = socket PF_INET SOCK_STREAM 0 in
-  let addr = ADDR_INET ((Unix.gethostbyname "nils.cc").h_addr_list.(0), 9000) in
-  (* TODO this should also loop  *)
-  let* () = connect sock addr in
+  let addr = "192.168.0.100" in
+  let addr =
+    match ADDR_INET ((Unix.gethostbyname addr).h_addr_list.(0), 9000) with
+    | addr -> addr
+    | exception Not_found -> failwith "Could not resolve server address"
+  in
+
   let oc = Lwt_io.of_fd ~mode:Lwt_io.Output sock in
   let ic = Lwt_io.of_fd ~mode:Lwt_io.Input sock in
   let msg = Msg.string_of_t Search in
-  let* () = Lwt_io.write_line oc msg in
   setup_window ();
-  let msg = Lwt_io.read_line_opt ic in
+  let msg =
+    connect sock addr >>= fun () ->
+    Lwt_io.write_line oc msg >>= fun () -> Lwt_io.read_line_opt ic
+  in
   wait_connect ic oc msg
-
-let rec get_pong ic oc =
-  let* msg = Lwt_io.read_line_opt ic in
-  match msg with
-  | Some "pong" -> Lwt.return_unit
-  | Some other ->
-      print_endline @@ "other: " ^ other;
-      let* () = Lwt_io.write_line oc "ping" in
-      get_pong ic oc
-  | None -> failwith "connection failed"
 
 let () = Lwt_main.run (connect ())
