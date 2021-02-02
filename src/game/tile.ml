@@ -1,4 +1,4 @@
-open Containers
+open ContainersLabels
 open Sexplib0.Sexp_conv
 
 type vec2 = { x : int; y : int } [@@deriving eq, sexp]

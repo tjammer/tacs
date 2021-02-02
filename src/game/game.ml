@@ -1,11 +1,10 @@
+open ContainersLabels
 module ImCoords = Helpers.ImmuHashtbl.Make (Hashtbl.Make (Tile.Coord))
 module ImMoves = Helpers.ImmuHashtbl.Make (Hashtbl.Make (Moves.Movekey))
 module Tile = Tile
 module Moves = Moves
 open Moves
-open Containers
-
-let ( let* ) = Option.bind
+open Option.Infix
 
 type kind = Pawn | King [@@deriving eq]
 
@@ -91,8 +90,7 @@ let transitions input gs =
   | Select sel, Move (move, src) -> (
       let* coord = match sel with `Ent c -> Some c | `Move _ -> None in
       let* move_ = ImMoves.find_opt gs.moves move in
-      let* outcome = outcome_of_selected gs (move_, src) coord in
-      match outcome with
+      outcome_of_selected gs (move_, src) coord >>= function
       | `Take | `Move -> Some (Do_move { move; src; dst = coord })
       | `Win_take | `Win_move ->
           let team = Team.flip gs.curr_team in

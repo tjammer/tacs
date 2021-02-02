@@ -1,4 +1,4 @@
-open Containers
+open ContainersLabels
 
 let inside_field coord =
   Tile.(coord.x) >= 0 && coord.x < 5 && coord.y >= 0 && coord.y < 5
@@ -8,7 +8,7 @@ module Move = struct
 
   let is_valid ~src ~dst move =
     List.fold_while
-      (fun accum move ->
+      ~f:(fun accum move ->
         match inside_field dst with
         | true ->
             if
@@ -18,9 +18,9 @@ module Move = struct
             then (true, `Stop)
             else (accum, `Continue)
         | false -> (false, `Stop))
-      false move
+      ~init:false move
 
-  let flip = List.map (fun Tile.{ x; y } -> Tile.{ x = -x; y = -y })
+  let flip = List.map ~f:(fun Tile.{ x; y } -> Tile.{ x = -x; y = -y })
 end
 
 module Movekey = struct
@@ -40,12 +40,12 @@ module Moves = struct
       Random.get_state ()
       |> Random.sample_without_duplicates ~cmp:compare 5
            (Random.int (List.length moves))
-      |> List.map (fun i -> List.nth moves i)
+      |> List.map ~f:(fun i -> List.nth moves i)
     in
     let tbl = Movetbl.create 5 in
 
     List.iter2
-      (fun key value ->
+      ~f:(fun key value ->
         let move =
           match key with
           | Movekey.Red_left | Red_right -> Move.flip value

@@ -1,3 +1,4 @@
+open ContainersLabels
 open Lwt
 open Lwt.Infix
 
@@ -50,20 +51,39 @@ let rec wait player =
 let msg_with_player p =
   Lwt_io.read_line_opt Player.(p.ic) >>= fun msg -> Lwt.return (msg, p)
 
-let rec play gs p1 p2 =
-  [ p1; p2 ] |> List.map msg_with_player |> Lwt.pick >>= fun (msg, player) ->
+let max_seed = (1 lsl 30) - 1
+
+let rec game_over winning_team p1 p2 rematch =
+  [ p1; p2 ] |> List.map ~f:msg_with_player |> Lwt.pick >>= fun (msg, player) ->
   match Option.bind msg Msg.parse with
-  | Some (Msg.Move input) ->
-      if not (Game.Team.equal player.team Game.State.(gs.curr_team)) then (
-        print_endline
-          "unexpected team. we should drop,b/c the player cliend cannot recover";
-        play gs p1 p2 )
-      else
-        let trans = Game.transitions (Some input) gs in
-        let gs = Game.Mut.apply trans gs in
-        (* write to other player *)
+  | Some (Msg.Move (Select _)) ->
+      let rematch =
+        if not (List.mem player rematch) then player :: rematch else rematch
+      in
+
+      if List.length rematch = 2 then
         let oc = if Game.Team.equal player.team p1.team then p2.oc else p1.oc in
-        Lwt_io.write_line oc (Option.get msg) >>= fun () -> play gs p1 p2
+        Lwt_io.write_line oc (Option.get_exn msg) >>= fun () ->
+        let seed = Random.int max_seed rst in
+        let start_team = Game.Team.flip winning_team in
+        let gamestate = Game.init start_team seed in
+
+        start_game p1.oc p2.oc start_team seed >>= fun () ->
+        play gamestate p1 p2
+      else
+        let oc = if Game.Team.equal player.team p1.team then p2.oc else p1.oc in
+        Lwt_io.write_line oc (Option.get_exn msg) >>= fun () ->
+        game_over winning_team p1 p2 rematch
+  | Some (Msg.Move Deselect) ->
+      let rematch =
+        List.filter_map
+          ~f:(fun (p : Player.t) ->
+            if Game.Team.equal player.team p.team then None else Some p)
+          rematch
+      in
+      let oc = if Game.Team.equal player.team p1.team then p2.oc else p1.oc in
+      Lwt_io.write_line oc (Option.get_exn msg) >>= fun () ->
+      game_over winning_team p1 p2 rematch
   | Some (Start _) | Some (Found _) | Some Search ->
       print_endline "unexpected message in handle message. drop";
       return_unit
@@ -72,7 +92,28 @@ let rec play gs p1 p2 =
       let oc = if Game.Team.equal player.team p1.team then p2.oc else p1.oc in
       Lwt_io.close oc >>= fun () -> return_unit
 
-let max_seed = (1 lsl 30) - 1
+and play gs p1 p2 =
+  [ p1; p2 ] |> List.map ~f:msg_with_player |> Lwt.pick >>= fun (msg, player) ->
+  match Option.bind msg Msg.parse with
+  | Some (Msg.Move input) ->
+      if not (Game.Team.equal player.team Game.State.(gs.curr_team)) then (
+        print_endline
+          "unexpected team. we should drop,b/c the player cliend cannot recover";
+
+        play gs p1 p2 )
+      else
+        let trans = Game.transitions (Some input) gs in
+        let gs = Game.Mut.apply trans gs in
+        (* write to other player *)
+        let oc = if Game.Team.equal player.team p1.team then p2.oc else p1.oc in
+        Lwt_io.write_line oc (Option.get_exn msg) >>= fun () -> play gs p1 p2
+  | Some (Start _) | Some (Found _) | Some Search ->
+      print_endline "unexpected message in handle message. drop";
+      return_unit
+  | None ->
+      print_endline "could not parse or disconnect. either way we drop both lol";
+      let oc = if Game.Team.equal player.team p1.team then p2.oc else p1.oc in
+      Lwt_io.close oc >>= fun () -> return_unit
 
 let initial_connection conn ~ic ~oc =
   Lwt_io.read_line_opt ic >>= fun msg ->
@@ -82,7 +123,7 @@ let initial_connection conn ~ic ~oc =
       match !board_wait with
       | [] ->
           (* first player *)
-          let team = List.nth [ Game.Team.Blue; Red ] @@ Random.int 2 in
+          let team = Random.pick_list [ Game.Team.Blue; Red ] rst in
           let ret = Msg.string_of_t @@ Found team in
           Lwt_io.write_line oc ret >>= fun () ->
           let player = { Player.team; conn; ic; oc } in
@@ -100,9 +141,10 @@ let initial_connection conn ~ic ~oc =
           Lwt_io.write_line oc ret >>= fun () ->
           let player2 = { Player.team; conn; ic; oc } in
 
-          let seed = Random.int max_seed in
+          let seed = Random.int max_seed rst in
           let start_team = Game.Team.Blue in
           let gamestate = Game.init start_team seed in
+
           start_game player1.oc player2.oc start_team seed >>= fun () ->
           play gamestate player1 player2 )
   | Some (Start _) | Some (Move _) | Some (Found _) ->

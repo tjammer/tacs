@@ -1,4 +1,4 @@
-open Containers
+open ContainersLabels
 module ImCoords = Game.ImCoords
 module ImMoves = Game.ImMoves
 module Moves = Game.Moves
@@ -56,12 +56,12 @@ let get_move_input cs team mx my =
     Moves.inside_field c
   in
   State.(cs.move_layouts)
-  |> List.filter (fun (key, _) ->
+  |> List.filter ~f:(fun (key, _) ->
          match (team, key) with
          | Game.Team.Blue, Moves.Movekey.Blue_left | Blue, Blue_right -> true
          | Red, Red_left | Red, Red_right -> true
          | _ -> false)
-  |> List.find_map (fun (key, layout) ->
+  |> List.find_map ~f:(fun (key, layout) ->
          if is_inside layout then
            let input =
              match key with
@@ -162,10 +162,10 @@ let draw_move move layout hl =
         if x = 2 && y = 2 then Color.gray
         else
           List.fold_while
-            (fun acc coord ->
+            ~f:(fun acc coord ->
               if Tile.Coord.equal coord { x = x - 2; y = y - 2 } then (hl, `Stop)
               else (acc, `Continue))
-            Color.lightgray move
+            ~init:Color.lightgray move
       in
       let x, y = Tile.Coord.to_px { x; y } layout in
       draw_rectangle x y (layout.size.x - 2) (layout.size.y - 2) color
@@ -184,7 +184,7 @@ let draw cs gs =
         match ImMoves.find_opt gs.moves move with
         | Some move ->
             List.filter_map
-              (fun mv ->
+              ~f:(fun mv ->
                 let target = Tile.Coord.add selected mv in
                 match Game.outcome_of_selected gs (move, selected) target with
                 | Some `Take -> Some (target, `Take)
@@ -208,7 +208,7 @@ let draw cs gs =
   done;
 
   List.iter
-    (fun (coord, mv_kind) ->
+    ~f:(fun (coord, mv_kind) ->
       let x, y = Tile.Coord.to_px coord cs.layout in
       let col =
         match mv_kind with
@@ -244,7 +244,7 @@ let draw cs gs =
     gs.ents;
 
   List.iter
-    (fun (movekey, layout) ->
+    ~f:(fun (movekey, layout) ->
       let layout =
         match ImMoves.find_opt cs.move_anims movekey with
         | Some anim -> anim.layout
