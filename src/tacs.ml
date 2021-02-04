@@ -10,13 +10,72 @@ let setup_window () =
   set_target_fps 60;
   ()
 
-let rec loop ic oc msg clientstate gamestate =
+let rec game_over team ic oc msg clientstate gamestate (me, them) =
   let open Raylib in
   match window_should_close () with
   | true ->
       close_window ();
       Lwt.return_unit
-  | false ->
+  | false -> (
+      let input =
+        match Client.input clientstate Game.State.(gamestate.curr_team) with
+        | Some input ->
+            Lwt.async (fun () ->
+                Lwt_io.write_line oc (Msg.string_of_t @@ Move input));
+            Some input
+        | None -> None
+      in
+      let me =
+        match input with
+        | Some (Select _) -> true
+        | Some Deselect -> false
+        | None -> me
+      in
+
+      let input, msg, trans =
+        match Lwt.state msg with
+        | Return (Some msg) -> (
+            print_endline msg;
+            let new_msg = Lwt_io.read_line_opt ic in
+            match Msg.parse msg with
+            | Some (Move input) -> (Some input, new_msg, `Cont)
+            | Some (Start { starting; move_seed }) ->
+                let gamestate = Game.init starting move_seed in
+                (None, new_msg, `Start gamestate)
+            | _ -> (None, new_msg, `Cont) )
+        | Return None | Fail _ ->
+            print_endline "cancel?";
+            close_window ();
+            (None, msg, `Abort)
+        | Sleep -> (None, msg, `Cont)
+      in
+
+      let them =
+        match input with
+        | Some (Select _) -> true
+        | Some Deselect -> false
+        | None -> them
+      in
+
+      begin_drawing ();
+      clear_background Color.raywhite;
+      Client.draw clientstate gamestate;
+      end_drawing ();
+
+      (* Need this for the lwt scheduler *)
+      Lwt_unix.sleep 0.0 >>= fun () ->
+      match trans with
+      | `Cont -> game_over team ic oc msg clientstate gamestate (me, them)
+      | `Start gamestate -> loop ic oc msg clientstate gamestate
+      | `Abort -> failwith "Not yet implemented" )
+
+and loop ic oc msg clientstate gamestate =
+  let open Raylib in
+  match window_should_close () with
+  | true ->
+      close_window ();
+      Lwt.return_unit
+  | false -> (
       let input, msg =
         if
           Game.State.(gamestate.curr_team) = Client.State.(clientstate.pov_team)
@@ -55,7 +114,11 @@ let rec loop ic oc msg clientstate gamestate =
       end_drawing ();
 
       (* Need this for the lwt scheduler *)
-      Lwt_unix.sleep 0.0 >>= fun () -> loop ic oc msg clientstate gamestate
+      Lwt_unix.sleep 0.0 >>= fun () ->
+      match gamestate.state with
+      | Game.Over team ->
+          game_over team ic oc msg clientstate gamestate (false, false)
+      | _ -> loop ic oc msg clientstate gamestate )
 
 let rec wait_for_other ic oc msg clientstate =
   let open Raylib in
@@ -114,7 +177,7 @@ let rec wait_connect ic oc msg =
 let connect () =
   let open Lwt_unix in
   let sock = socket PF_INET SOCK_STREAM 0 in
-  let addr = "192.168.0.100" in
+  let addr = "192.168.0.101" in
   let addr =
     match ADDR_INET ((Unix.gethostbyname addr).h_addr_list.(0), 9000) with
     | addr -> addr

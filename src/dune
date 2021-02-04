@@ -1,10 +1,12 @@
 (executable
  (name tacs)
  (public_name tacs)
- (link_flags (:include link_flags.sexp))
+ (link_flags
+  (:include link_flags.sexp))
  (package tacs)
  (libraries raylib lwt.unix game client msg))
 
 (rule
  (targets link_flags.sexp)
- (action  (run ./config/configure.exe)))
+ (action
+  (run ./config/configure.exe)))

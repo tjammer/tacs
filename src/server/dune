@@ -1,6 +1,7 @@
 (executable
  (name server)
  (public_name tacs-server)
- (link_flags (:include ../link_flags.sexp))
+ (link_flags
+  (:include ../link_flags.sexp))
  (package tacs-server)
  (libraries game msg lwt.unix sexplib))
