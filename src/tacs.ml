@@ -6,8 +6,8 @@ let height = 720
 
 let setup_window () =
   let open Raylib in
+  set_config_flags [ConfigFlag.VSync_hint] ;
   init_window 1280 720 "tacs";
-  set_target_fps 60;
   ()
 
 let rec game_over team ic oc msg clientstate gamestate (me, them) =
@@ -32,7 +32,7 @@ let rec game_over team ic oc msg clientstate gamestate (me, them) =
         | None -> me
       in
 
-      let input, msg, trans =
+      let input, msg, control =
         match Lwt.state msg with
         | Return (Some msg) -> (
             print_endline msg;
@@ -43,10 +43,7 @@ let rec game_over team ic oc msg clientstate gamestate (me, them) =
                 let gamestate = Game.init starting move_seed in
                 (None, new_msg, `Start gamestate)
             | _ -> (None, new_msg, `Cont) )
-        | Return None | Fail _ ->
-            print_endline "cancel?";
-            close_window ();
-            (None, msg, `Abort)
+        | Return None | Fail _ -> (None, msg, `Abort)
         | Sleep -> (None, msg, `Cont)
       in
 
@@ -110,10 +107,10 @@ let rec game_over team ic oc msg clientstate gamestate (me, them) =
 
       (* Need this for the lwt scheduler *)
       Lwt_unix.sleep 0.0 >>= fun () ->
-      match trans with
+      match control with
       | `Cont -> game_over team ic oc msg clientstate gamestate (me, them)
       | `Start gamestate -> loop ic oc msg clientstate gamestate
-      | `Abort -> failwith "Not yet implemented" )
+      | `Abort -> Lwt.return_unit )
 
 and loop ic oc msg clientstate gamestate =
   let open Raylib in
@@ -122,7 +119,7 @@ and loop ic oc msg clientstate gamestate =
       close_window ();
       Lwt.return_unit
   | false -> (
-      let input, msg =
+      let input, msg, control =
         if
           Game.State.(gamestate.curr_team) = Client.State.(clientstate.pov_team)
         then
@@ -130,21 +127,18 @@ and loop ic oc msg clientstate gamestate =
           | Some input ->
               Lwt.async (fun () ->
                   Lwt_io.write_line oc (Msg.string_of_t @@ Move input));
-              (Some input, msg)
-          | None -> (None, msg)
+              (Some input, msg, `Cont)
+          | None -> (None, msg, `Cont)
         else
           match Lwt.state msg with
           | Return (Some msg) -> (
               print_endline msg;
               let new_msg = Lwt_io.read_line_opt ic in
               match Msg.parse msg with
-              | Some (Move input) -> (Some input, new_msg)
-              | _ -> (None, new_msg) )
-          | Return None | Fail _ ->
-              print_endline "cancel?";
-              close_window ();
-              (None, msg)
-          | Sleep -> (None, msg)
+              | Some (Move input) -> (Some input, new_msg, `Cont)
+              | _ -> (None, new_msg, `Cont) )
+          | Return None | Fail _ -> (None, msg, `Abort)
+          | Sleep -> (None, msg, `Cont)
       in
 
       let trans = Game.transitions input gamestate in
@@ -161,10 +155,11 @@ and loop ic oc msg clientstate gamestate =
 
       (* Need this for the lwt scheduler *)
       Lwt_unix.sleep 0.0 >>= fun () ->
-      match gamestate.state with
-      | Game.Over team ->
+      match (control, gamestate.state) with
+      | `Cont, Game.Over team ->
           game_over team ic oc msg clientstate gamestate (false, false)
-      | _ -> loop ic oc msg clientstate gamestate )
+      | `Cont, _ -> loop ic oc msg clientstate gamestate
+      | `Abort, _ -> Lwt.return_unit )
 
 let rec wait_for_other ic oc msg clientstate =
   let open Raylib in
