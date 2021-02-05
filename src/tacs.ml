@@ -60,6 +60,52 @@ let rec game_over team ic oc msg clientstate gamestate (me, them) =
       begin_drawing ();
       clear_background Color.raywhite;
       Client.draw clientstate gamestate;
+
+      let txt_size = measure_text "Rematch?" 80 in
+
+      draw_text "Rematch?"
+        ((get_screen_width () / 2) - (txt_size / 2))
+        ((get_screen_height () / 2) + 40)
+        80 Color.black;
+
+      draw_rectangle
+        ((get_screen_width () / 2) - 170)
+        50 150 150 (fade Color.raywhite 0.75);
+
+      draw_rectangle_lines
+        ((get_screen_width () / 2) - 170)
+        50 150 150 Color.gray;
+
+      draw_rectangle
+        ((get_screen_width () / 2) + 20)
+        50 150 150 (fade Color.raywhite 0.75);
+
+      draw_rectangle_lines
+        ((get_screen_width () / 2) + 20)
+        50 150 150 Color.gray;
+
+      let pawn_blue, king_blue, _, king_red = Client.State.(clientstate.texs) in
+      let scale =
+        (150 |> Float.of_int) /. Float.of_int (Texture2D.width pawn_blue)
+      in
+
+      let tx = function Game.Team.Blue -> king_blue | Red -> king_red in
+
+      if me then
+        draw_texture_ex (tx clientstate.pov_team)
+          (Vector2.create
+             ((get_screen_width () / 2) - 170 |> Float.of_int)
+             (Float.of_int 50))
+          0.0 scale Color.white;
+
+      if them then
+        draw_texture_ex
+          (tx (Game.Team.flip clientstate.pov_team))
+          (Vector2.create
+             ((get_screen_width () / 2) + 20 |> Float.of_int)
+             (Float.of_int 50))
+          0.0 scale Color.white;
+
       end_drawing ();
 
       (* Need this for the lwt scheduler *)

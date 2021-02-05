@@ -9,6 +9,8 @@ module Player = struct
     ic : Lwt_io.input_channel;
     oc : Lwt_io.output_channel;
   }
+
+  let equal a b = Game.Team.equal a.team b.team
 end
 
 module Board = struct
@@ -62,7 +64,8 @@ let rec game_over losing_team p1 p2 rematch =
   with
   | Some (msg, Msg.Move (Select _)) ->
       let rematch =
-        if not (List.mem player rematch) then player :: rematch else rematch
+        if not (List.mem ~eq:Player.equal player rematch) then player :: rematch
+        else rematch
       in
 
       if List.length rematch = 2 then
