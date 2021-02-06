@@ -300,6 +300,14 @@ let draw cs gs =
         ((get_screen_height () / 2) - 100)
         100 Color.black
 
+let pawn_blue = lazy (Raylib.load_texture "assets/blue_pawn.png")
+
+let king_blue = lazy (Raylib.load_texture "assets/blue_king.png")
+
+let pawn_red = lazy (Raylib.load_texture "assets/red_pawn.png")
+
+let king_red = lazy (Raylib.load_texture "assets/red_king.png")
+
 let init_state pov_team =
   (* TODO implemend this properly *)
   let layout =
@@ -346,12 +354,9 @@ let init_state pov_team =
 
   let module Coordtbl = Hashtbl.Make (Tile.Coord) in
   let module Movetbl = Hashtbl.Make (Moves.Movekey) in
-  let open Raylib in
-  let pawn_blue = load_texture "assets/blue_pawn.png" in
-  let king_blue = load_texture "assets/blue_king.png" in
-  let pawn_red = load_texture "assets/red_pawn.png" in
-  let king_red = load_texture "assets/red_king.png" in
-  let texs = (pawn_blue, king_blue, pawn_red, king_red) in
+  let texs =
+    Lazy.(force pawn_blue, force king_blue, force pawn_red, force king_red)
+  in
 
   let ent_anims = Coordtbl.create 10 in
   let move_anims = Movetbl.create 5 in
