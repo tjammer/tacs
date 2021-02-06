@@ -158,12 +158,10 @@ let initial_connection conn ~ic ~oc =
           play gamestate player1 player2 )
   | Some (Start _) | Some (Move _) | Some (Found _) ->
       print_endline "unexpected message in 1st conn";
-      Lwt_io.close oc >>= fun () ->
-      Lwt_io.close ic >>= fun () -> return_unit
+      return_unit
   | None ->
       print_endline "drop";
-      Lwt_io.close oc >>= fun () ->
-      Lwt_io.close ic >>= fun () -> return_unit
+      return_unit
 
 let handle_connection (sock, _) =
   let ic = Lwt_io.of_fd ~mode:Lwt_io.Input sock in

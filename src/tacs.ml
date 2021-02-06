@@ -93,11 +93,11 @@ let setup_window () =
   init_window 1280 720 "tacs";
   set_exit_key Key.F12;
   [
-    { bar; x = 150; y = 350; state = Idle hover_bar; mode = Sp };
+    { bar; x = 150; y = 375; state = Idle hover_bar; mode = Sp };
     {
       bar;
       x = width - bar.width - 150;
-      y = 350;
+      y = 375;
       state = Idle { hover_bar with innerc = Color.orange };
       mode = Mp;
     };
@@ -121,7 +121,7 @@ let rec loop control buttons =
             | Idle dst, true -> { br with state = Anim_hover (bar, dst, 0.0) }
             | Idle _, false -> br
             | Anim_hover (src, dst, frac), true ->
-                let frac = frac +. (1.0 /. 30.0) in
+                let frac = frac +. (1.0 /. 15.0) in
                 if frac >=. 1.0 then { br with bar = dst; state = Hover src }
                 else
                   {
@@ -132,7 +132,7 @@ let rec loop control buttons =
             | Anim_hover (src, dst, frac), false ->
                 { br with state = Anim_idle (src, dst, frac) }
             | Anim_idle (src, dst, frac), false ->
-                let frac = frac -. (1.0 /. 30.0) in
+                let frac = frac -. (1.0 /. 15.0) in
                 if frac <=. 0.0 then { br with bar = src; state = Idle dst }
                 else
                   {
@@ -188,7 +188,7 @@ let rec loop control buttons =
           let sz = 100 in
           let w = measure_text txt sz in
           let x = (width / 2) - (w / 2) in
-          draw_text txt x 125 sz Color.black;
+          draw_text txt x 100 sz Color.gray;
 
           end_drawing ();
           if is_key_pressed Key.Escape then loop `Exit buttons

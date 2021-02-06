@@ -209,7 +209,7 @@ let rec wait_connect ic oc msg =
 let connect () =
   let open Lwt_unix in
   let sock = socket PF_INET SOCK_STREAM 0 in
-  let addr = "192.168.0.101" in
+  let addr = "nils.cc" in
   let addr =
     match ADDR_INET ((Unix.gethostbyname addr).h_addr_list.(0), 9000) with
     | addr -> addr

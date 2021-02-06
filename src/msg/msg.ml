@@ -14,4 +14,5 @@ let parse msg =
       match t_of_sexp sexp with
       | msg -> Some msg
       | exception Sexplib.Conv.Of_sexp_error (_, _) -> None )
-  | exception Sexplib.Conv.Of_sexp_error (_, _) -> None
+  | (exception Sexplib.Conv.Of_sexp_error (_, _)) | (exception Failure _) ->
+      None
