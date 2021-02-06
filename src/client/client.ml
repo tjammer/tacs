@@ -196,6 +196,15 @@ let draw cs gs =
     | _ -> []
   in
 
+  List.iter
+    ~f:(fun (x, y) ->
+      let x, y = Tile.Coord.to_px { x; y } cs.layout in
+      draw_rectangle (x + line_thickness) (y + line_thickness)
+        (lsx - (2 * line_thickness))
+        (lsy - (2 * line_thickness))
+        (fade Color.lightgray 0.25))
+    [ (2, 0); (2, 4) ];
+
   for y = 0 to 4 do
     for x = 0 to 4 do
       let x, y = Tile.Coord.to_px { x; y } cs.layout in
