@@ -4,7 +4,15 @@ let () =
   C.main ~name:"raylib" (fun c ->
       let link_flags =
         match C.ocaml_config_var c "system" with
-        | Some "mingw64" -> [ "-cclib"; "-Wl,-static" ]
+        | Some "mingw64" ->
+            [
+              "-cclib";
+              "-Wl,-static";
+              "-cclib";
+              "-subsystem";
+              "-cclib";
+              "windows";
+            ]
         | Some _ | None -> []
       in
 
