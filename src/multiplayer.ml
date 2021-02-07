@@ -99,7 +99,7 @@ let rec game_over team ic oc msg clientstate gamestate (me, them) =
       match control with
       | `Cont -> game_over team ic oc msg clientstate gamestate (me, them)
       | `Start gamestate -> loop ic oc msg clientstate gamestate
-      | `Abort -> Lwt.return `Back )
+      | `Abort -> Lwt_io.close oc >>= fun () -> Lwt.return `Back )
 
 and loop ic oc msg clientstate gamestate =
   let open Raylib in
@@ -107,6 +107,18 @@ and loop ic oc msg clientstate gamestate =
   | true -> Lwt.return `Exit
   | false -> (
       let input, msg, control =
+        match Lwt.state msg with
+        | Return (Some msg) -> (
+            print_endline msg;
+            let new_msg = Lwt_io.read_line_opt ic in
+            match Msg.parse msg with
+            | Some (Move input) -> (Some input, new_msg, `Cont)
+            | _ -> (None, new_msg, `Cont) )
+        | Return None | Fail _ -> (None, msg, `Abort)
+        | Sleep -> (None, msg, `Cont)
+      in
+
+      let input =
         if
           Game.(
             Team.equal
@@ -117,18 +129,9 @@ and loop ic oc msg clientstate gamestate =
           | Some input ->
               Lwt.async (fun () ->
                   Lwt_io.write_line oc (Msg.string_of_t @@ Move input));
-              (Some input, msg, `Cont)
-          | None -> (None, msg, `Cont)
-        else
-          match Lwt.state msg with
-          | Return (Some msg) -> (
-              print_endline msg;
-              let new_msg = Lwt_io.read_line_opt ic in
-              match Msg.parse msg with
-              | Some (Move input) -> (Some input, new_msg, `Cont)
-              | _ -> (None, new_msg, `Cont) )
-          | Return None | Fail _ -> (None, msg, `Abort)
-          | Sleep -> (None, msg, `Cont)
+              Some input
+          | None -> None
+        else input
       in
 
       let trans = Game.transitions input gamestate in
@@ -151,7 +154,7 @@ and loop ic oc msg clientstate gamestate =
       | `Cont, Game.Over team ->
           game_over team ic oc msg clientstate gamestate (false, false)
       | `Cont, _ -> loop ic oc msg clientstate gamestate
-      | `Abort, _ -> Lwt.return `Back )
+      | `Abort, _ -> Lwt_io.close oc >>= fun () -> Lwt.return `Back )
 
 let rec wait_for_other ic oc msg clientstate =
   let open Raylib in
