@@ -94,6 +94,8 @@ let rec game_over team ic oc msg clientstate gamestate (me, them) =
 
       end_drawing ();
 
+      let control = if is_key_pressed Key.Escape then `Abort else control in
+
       (* Need this for the lwt scheduler *)
       Lwt_unix.sleep 0.0 >>= fun () ->
       match control with
@@ -207,7 +209,9 @@ let rec wait_connect ic oc msg =
             ((get_screen_height () / 2) - 100)
             100 Color.black;
           end_drawing ();
-          Lwt_unix.sleep 0.0 >>= fun () -> wait_connect ic oc msg )
+          Lwt_unix.sleep 0.0 >>= fun () ->
+          if is_key_pressed Key.Escape then Lwt.return `Back
+          else wait_connect ic oc msg )
 
 let connect () =
   let open Lwt_unix in

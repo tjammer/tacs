@@ -180,7 +180,7 @@ let rec loop control buttons =
                       y - ((bar.height - src.height) / 2) )
               in
               draw_bar_text bar x y
-                (match mode with Sp -> "Local Coop" | Mp -> "Multiplayer")
+                (match mode with Sp -> "Local" | Mp -> "Multiplayer")
                 50)
             buttons;
 
