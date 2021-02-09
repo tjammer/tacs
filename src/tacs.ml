@@ -157,7 +157,7 @@ let rec loop control buttons =
             ~f:(fun res bt ->
               match (bt.state, bt.mode) with
               | Idle _, _ | Anim_idle _, _ -> res
-              | Hover _, Sp | Anim_hover _, Sp -> Some Local_coop.start
+              | Hover _, Sp | Anim_hover _, Sp -> Some Local.start
               | Hover _, Mp | Anim_hover _, Mp -> Some Multiplayer.connect)
             ~init:None buttons
         else None

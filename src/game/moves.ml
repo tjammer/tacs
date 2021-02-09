@@ -42,20 +42,17 @@ module Moves = struct
            (Random.int (List.length moves))
       |> List.map ~f:(fun i -> List.nth moves i)
     in
-    let tbl = Movetbl.create 5 in
 
-    List.iter2
+    List.map2
       ~f:(fun key value ->
         let move =
           match key with
           | Movekey.Red_left | Red_right -> Move.flip value
           | Blue_left | Blue_right | Middle -> value
         in
-        Movetbl.add tbl key move)
+        (key, move))
       [ Movekey.Blue_left; Blue_right; Red_left; Red_right; Middle ]
-      (List.take 5 moves);
-
-    tbl
+      (List.take 5 moves)
 end
 
 let mantis = [ { Tile.x = 0; y = 1 }; { x = -1; y = -1 }; { x = 1; y = -1 } ]

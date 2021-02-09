@@ -1,6 +1,4 @@
 open ContainersLabels
-module ImCoords = Helpers.ImmuHashtbl.Make (Hashtbl.Make (Tile.Coord))
-module ImMoves = Helpers.ImmuHashtbl.Make (Hashtbl.Make (Moves.Movekey))
 module Tile = Tile
 module Moves = Moves
 open Moves
@@ -28,8 +26,8 @@ type state_kind =
 
 module State = struct
   type t = {
-    ents : (kind * Team.t) ImCoords.t;
-    moves : Move.t ImMoves.t;
+    ents : (Tile.Coord.t, kind * Team.t) List.Assoc.t;
+    moves : (Movekey.t, Move.t) List.Assoc.t;
     state : state_kind;
     curr_team : Team.t;
   }
@@ -52,7 +50,7 @@ end
 
 let choose_ent tbl team = function
   | `Ent coord ->
-      let* _, t = ImCoords.find_opt tbl coord in
+      let* _, t = List.Assoc.get ~eq:Tile.Coord.equal coord tbl in
       if Team.equal team t then Some coord else None
   | `Move _ -> None
 
@@ -63,12 +61,12 @@ let choose_move team = function
   | `Move Right -> Some (match team with Blue -> Blue_right | Red -> Red_right)
 
 let outcome_of_selected gs (move, selected) dst =
-  let* kind, _ = ImCoords.find_opt State.(gs.ents) selected in
+  let* kind, _ = List.Assoc.get ~eq:Tile.Coord.equal selected State.(gs.ents) in
   let winning_move =
     Tile.Coord.equal dst (Team.win_field gs.curr_team) && equal_kind kind King
   in
   if Move.is_valid ~src:selected ~dst move then
-    match ImCoords.find_opt gs.ents dst with
+    match List.Assoc.get ~eq:Tile.Coord.equal dst gs.ents with
     | Some (other_kind, other_team) ->
         if not (Team.equal gs.curr_team other_team) then
           if equal_kind other_kind King || winning_move then Some `Win_take
@@ -89,7 +87,7 @@ let transitions input gs =
       Some (State (Move (move, coord)))
   | Select sel, Move (move, src) -> (
       let* coord = match sel with `Ent c -> Some c | `Move _ -> None in
-      let* move_ = ImMoves.find_opt gs.moves move in
+      let* move_ = List.Assoc.get ~eq:Movekey.equal move gs.moves in
       outcome_of_selected gs (move_, src) coord >>= function
       | `Take | `Move -> Some (Do_move { move; src; dst = coord })
       | `Win_take | `Win_move ->
@@ -102,30 +100,32 @@ let transitions input gs =
   | Deselect, Over team -> Some (Restart team)
 
 let init starting_team seed =
-  let module Coordtbl = Hashtbl.Make (Tile.Coord) in
-  let ents = Coordtbl.create 10 in
-  Coordtbl.add ents { Tile.x = 0; y = 4 } (Pawn, Team.Blue);
-  Coordtbl.add ents { Tile.x = 1; y = 4 } (Pawn, Blue);
-  Coordtbl.add ents { Tile.x = 2; y = 4 } (King, Blue);
-  Coordtbl.add ents { Tile.x = 3; y = 4 } (Pawn, Blue);
-  Coordtbl.add ents { Tile.x = 4; y = 4 } (Pawn, Blue);
-
-  Coordtbl.add ents { Tile.x = 0; y = 0 } (Pawn, Red);
-  Coordtbl.add ents { Tile.x = 1; y = 0 } (Pawn, Red);
-  Coordtbl.add ents { Tile.x = 2; y = 0 } (King, Red);
-  Coordtbl.add ents { Tile.x = 3; y = 0 } (Pawn, Red);
-  Coordtbl.add ents { Tile.x = 4; y = 0 } (Pawn, Red);
+  let ents =
+    [
+      ({ Tile.x = 0; y = 4 }, (Pawn, Team.Blue));
+      ({ x = 1; y = 4 }, (Pawn, Blue));
+      ({ x = 2; y = 4 }, (King, Blue));
+      ({ x = 3; y = 4 }, (Pawn, Blue));
+      ({ x = 4; y = 4 }, (Pawn, Blue));
+      ({ x = 0; y = 0 }, (Pawn, Red));
+      ({ x = 1; y = 0 }, (Pawn, Red));
+      ({ x = 2; y = 0 }, (King, Red));
+      ({ x = 3; y = 0 }, (Pawn, Red));
+      ({ x = 4; y = 0 }, (Pawn, Red));
+    ]
+  in
 
   let moves =
     let module Movetbl = Hashtbl.Make (Movekey) in
     let m = Moves.distribute_initial all_moves seed in
 
-    ( if Team.equal starting_team Team.Red then
-      match Movetbl.find_opt m Movekey.Middle with
-      | Some move -> Movetbl.replace m Movekey.Middle (Move.flip move)
-      | None -> (* TODO log *) () );
-    m
+    if Team.equal starting_team Team.Red then
+      List.Assoc.update ~eq:Movekey.equal Movekey.Middle m ~f:(function
+        | Some move -> Some (Move.flip move)
+        | None -> failwith "cannot flip middle")
+    else m
   in
+
   State.{ ents; moves; state = Choose_move; curr_team = starting_team }
 
 module Mut = struct
@@ -133,28 +133,29 @@ module Mut = struct
   module Coordtbl = Hashtbl.Make (Tile.Coord)
 
   let advance move moves =
-    let middle = ImMoves.find_exn moves Movekey.Middle in
-    let value = ImMoves.find_exn moves move in
-    Movetbl.replace moves Movekey.Middle (Move.flip value);
-    Movetbl.replace moves move middle
-
-  let copy_tbl ~src ~dst =
-    (* clears dst *)
-    let module Coordtbl = Hashtbl.Make (Tile.Coord) in
-    Coordtbl.clear dst;
-    Coordtbl.add_seq dst (Coordtbl.to_seq src);
-    ()
+    let eq = Movekey.equal in
+    let middle = List.Assoc.get_exn ~eq Movekey.Middle moves in
+    let value = List.Assoc.get_exn ~eq move moves in
+    List.Assoc.update ~eq
+      ~f:(function Some _ | None -> Some (Move.flip value))
+      Movekey.Middle moves
+    |> List.Assoc.update ~eq ~f:(function Some _ | None -> Some middle) move
 
   let apply transitions gs =
     let open Transition in
     match transitions with
     | Some (State state) -> State.{ gs with state }
     | Some (Do_move { move; src; dst }) ->
-        let ent = Coordtbl.find gs.ents src in
-        let () = advance move gs.moves in
-        Coordtbl.replace gs.ents dst ent;
-        Coordtbl.remove gs.ents src;
-        { gs with curr_team = Team.flip gs.curr_team; state = Choose_move }
+        let eq = Tile.Coord.equal in
+        let ent = List.Assoc.get ~eq src gs.ents in
+        let moves = advance move gs.moves in
+        let ents =
+          List.Assoc.update ~eq
+            ~f:(function Some _ -> ent | None -> ent)
+            dst gs.ents
+          |> List.Assoc.remove ~eq src
+        in
+        { curr_team = Team.flip gs.curr_team; state = Choose_move; ents; moves }
     | Some (Restart team) -> init team 0
     | None -> gs
 end

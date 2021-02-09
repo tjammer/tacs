@@ -1,8 +1,8 @@
 open ContainersLabels
-module ImCoords = Game.ImCoords
-module ImMoves = Game.ImMoves
 module Moves = Game.Moves
 module Tile = Game.Tile
+module ImCoords = Helpers.ImmuHashtbl.Make (Hashtbl.Make (Tile.Coord))
+module ImMoves = Helpers.ImmuHashtbl.Make (Hashtbl.Make (Moves.Movekey))
 
 type ent_anim = {
   src : float * float;
@@ -181,7 +181,7 @@ let draw cs gs =
   let highlights =
     match Game.State.(gs.state) with
     | Game.Move (move, selected) -> (
-        match ImMoves.find_opt gs.moves move with
+        match List.Assoc.get ~eq:Moves.Movekey.equal move gs.moves with
         | Some move ->
             List.filter_map
               ~f:(fun mv ->
@@ -235,8 +235,8 @@ let draw cs gs =
   in
 
   (* draw only ents which are not animated *)
-  ImCoords.iter
-    (fun pos (kind, team) ->
+  List.iter
+    ~f:(fun (pos, (kind, team)) ->
       let tex =
         match (kind, team) with
         | Game.(Pawn, Team.Blue) -> pawn_blue
@@ -260,7 +260,8 @@ let draw cs gs =
         | None -> layout
       in
       let move =
-        ImMoves.find_exn gs.moves movekey |> fun move ->
+        List.Assoc.get_exn ~eq:Moves.Movekey.equal movekey gs.moves
+        |> fun move ->
         match cs.pov_team with Blue -> move | Red -> Moves.Move.flip move
       in
       let color =
