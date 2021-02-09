@@ -60,6 +60,8 @@ let choose_move team = function
       Some (match team with Team.Blue -> Movekey.Blue_left | Red -> Red_left)
   | `Move Right -> Some (match team with Blue -> Blue_right | Red -> Red_right)
 
+type outcome = Take | Move | Win_take | Win_move
+
 let outcome_of_selected gs (move, selected) dst =
   let* kind, _ = List.Assoc.get ~eq:Tile.Coord.equal selected State.(gs.ents) in
   let winning_move =
@@ -69,10 +71,10 @@ let outcome_of_selected gs (move, selected) dst =
     match List.Assoc.get ~eq:Tile.Coord.equal dst gs.ents with
     | Some (other_kind, other_team) ->
         if not (Team.equal gs.curr_team other_team) then
-          if equal_kind other_kind King || winning_move then Some `Win_take
-          else Some `Take
+          if equal_kind other_kind King || winning_move then Some Win_take
+          else Some Take
         else None
-    | None -> if winning_move then Some `Win_move else Some `Move
+    | None -> if winning_move then Some Win_move else Some Move
   else None
 
 let transitions input gs =
@@ -89,8 +91,8 @@ let transitions input gs =
       let* coord = match sel with `Ent c -> Some c | `Move _ -> None in
       let* move_ = List.Assoc.get ~eq:Movekey.equal move gs.moves in
       outcome_of_selected gs (move_, src) coord >>= function
-      | `Take | `Move -> Some (Do_move { move; src; dst = coord })
-      | `Win_take | `Win_move ->
+      | Take | Move -> Some (Do_move { move; src; dst = coord })
+      | Win_take | Win_move ->
           let team = Team.flip gs.curr_team in
           Some (State (Over team)) )
   | Select _, Over _ -> None

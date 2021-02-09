@@ -187,9 +187,9 @@ let draw cs gs =
               ~f:(fun mv ->
                 let target = Tile.Coord.add selected mv in
                 match Game.outcome_of_selected gs (move, selected) target with
-                | Some `Take -> Some (target, `Take)
-                | Some `Win_move | Some `Win_take -> Some (target, `Win)
-                | Some `Move -> Some (target, `Move)
+                | Some Take -> Some (target, `Take)
+                | Some Win_move | Some Win_take -> Some (target, `Win)
+                | Some Move -> Some (target, `Move)
                 | None -> None)
               move
         | None -> [] )
