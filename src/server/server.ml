@@ -125,49 +125,52 @@ and play gs p1 p2 =
       Lwt_io.close oc >>= fun () -> return_unit
 
 let initial_connection conn ~ic ~oc =
-  Lwt_io.read_line_opt ic >>= fun msg ->
-  match Option.bind msg (fun msg -> Msg.parse msg) with
-  | Some Msg.Search -> (
-      (* TODO mutex *)
-      match !board_wait with
-      | [] ->
-          (* first player *)
-          let team = Random.pick_list [ Game.Team.Blue; Red ] rst in
-          let ret = Msg.string_of_t @@ Found team in
-          Lwt_io.write_line oc ret >>= fun () ->
-          let player = { Player.team; conn; ic; oc } in
-          let wait_p = wait player in
-          board_wait := [ (player, wait_p) ];
-          return_unit
-      | (player1, wait) :: _ ->
+  Lwt.try_bind
+    (fun () -> Lwt_io.read_line_opt ic)
+    (fun msg ->
+      match Option.bind msg (fun msg -> Msg.parse msg) with
+      | Some Msg.Search -> (
           (* TODO mutex *)
-          board_wait := [];
-          (* cancel first player promise to handle both in play () *)
-          Lwt.cancel wait;
+          match !board_wait with
+          | [] ->
+              (* first player *)
+              let team = Random.pick_list [ Game.Team.Blue; Red ] rst in
+              let ret = Msg.string_of_t @@ Found team in
+              Lwt_io.write_line oc ret >>= fun () ->
+              let player = { Player.team; conn; ic; oc } in
+              let wait_p = wait player in
+              board_wait := [ (player, wait_p) ];
+              return_unit
+          | (player1, wait) :: _ ->
+              (* TODO mutex *)
+              board_wait := [];
+              (* cancel first player promise to handle both in play () *)
+              Lwt.cancel wait;
 
-          let team = Game.Team.flip player1.team in
-          let ret = Msg.string_of_t @@ Found team in
-          Lwt_io.write_line oc ret >>= fun () ->
-          let player2 = { Player.team; conn; ic; oc } in
+              let team = Game.Team.flip player1.team in
+              let ret = Msg.string_of_t @@ Found team in
+              Lwt_io.write_line oc ret >>= fun () ->
+              let player2 = { Player.team; conn; ic; oc } in
 
-          let seed = Random.int max_seed rst in
-          let start_team = Game.Team.Blue in
-          let gamestate = Game.init start_team seed in
+              let seed = Random.int max_seed rst in
+              let start_team = Game.Team.Blue in
+              let gamestate = Game.init start_team seed in
 
-          start_game player1.oc player2.oc start_team seed >>= fun () ->
-          play gamestate player1 player2 )
-  | Some (Start _) | Some (Move _) | Some (Found _) ->
-      print_endline "unexpected message in 1st conn";
-      Lwt.try_bind
-        (fun () -> Lwt_io.close oc >>= fun () -> Lwt_io.close ic)
-        (fun () -> return_unit)
-        (fun _ -> return_unit)
-  | None ->
-      print_endline "drop";
-      Lwt.try_bind
-        (fun () -> Lwt_io.close oc >>= fun () -> Lwt_io.close ic)
-        (fun () -> return_unit)
-        (fun _ -> return_unit)
+              start_game player1.oc player2.oc start_team seed >>= fun () ->
+              play gamestate player1 player2 )
+      | Some (Start _) | Some (Move _) | Some (Found _) ->
+          print_endline "unexpected message in 1st conn";
+          Lwt.try_bind
+            (fun () -> Lwt_io.close oc >>= fun () -> Lwt_io.close ic)
+            (fun () -> return_unit)
+            (fun _ -> return_unit)
+      | None ->
+          print_endline "drop";
+          Lwt.try_bind
+            (fun () -> Lwt_io.close oc >>= fun () -> Lwt_io.close ic)
+            (fun () -> return_unit)
+            (fun _ -> return_unit))
+    (fun _ -> return_unit)
 
 let handle_connection (sock, _) =
   let ic = Lwt_io.of_fd ~mode:Lwt_io.Input sock in
