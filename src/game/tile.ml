@@ -10,7 +10,6 @@ module Coord = struct
 
   let add a b = { x = a.x + b.x; y = a.y + b.y }
 
-  (* TODO make sure these are correct for negative values *)
   let of_px x y layout =
     {
       x = Int.of_float (x -. Float.of_int layout.origin.x) / layout.size.x;

@@ -12,7 +12,6 @@ let inp_of_move = function
   | Blue_right | Red_right -> Right
   | Middle -> assert false
 
-(* TODO generate sequence of all moves *)
 let moves team =
   match team with
   | Team.Blue -> [ Moves.Movekey.Blue_left; Blue_right ]

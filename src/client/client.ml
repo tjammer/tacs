@@ -155,6 +155,7 @@ let recti x y width height =
     (Float.of_int height)
 
 let draw_move move layout hl =
+  let border = 3 in
   let open Raylib in
   for y = 0 to 4 do
     for x = 0 to 4 do
@@ -168,7 +169,7 @@ let draw_move move layout hl =
             ~init:Color.lightgray move
       in
       let x, y = Tile.Coord.to_px { x; y } layout in
-      draw_rectangle x y (layout.size.x - 2) (layout.size.y - 2) color
+      draw_rectangle x y (layout.size.x - border) (layout.size.y - border) color
     done
   done
 
