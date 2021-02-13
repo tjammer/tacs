@@ -20,6 +20,8 @@ end
 
 let board_wait = ref []
 
+let board_mutex = Lwt_mutex.create ()
+
 let () = Random.self_init ()
 
 let rst = Random.get_state ()
@@ -43,12 +45,19 @@ let rec wait player =
   | Some _ ->
       (* we ignore input, they should be waiting *)
       wait player
-  | None ->
+  | None -> (
       (* connection dropped *)
-      (* TODO mutex *)
-      print_endline "waiting player dropped";
-      board_wait := [];
-      return_unit
+      Lwt_mutex.lock board_mutex >>= fun () ->
+      match !board_wait with
+      | (player1, _) :: _ when Game.Team.equal player.team Player.(player1.team)
+        ->
+          print_endline "waiting player dropped";
+          board_wait := [];
+          Lwt_mutex.unlock board_mutex;
+          return_unit
+      | _ ->
+          Lwt_mutex.unlock board_mutex;
+          return_unit )
 
 let msg_with_player p =
   Lwt_io.read_line_opt Player.(p.ic) >>= fun msg -> Lwt.return (msg, p)
@@ -130,7 +139,7 @@ let initial_connection conn ~ic ~oc =
     (fun msg ->
       match Option.bind msg (fun msg -> Msg.parse msg) with
       | Some Msg.Search -> (
-          (* TODO mutex *)
+          Lwt_mutex.lock board_mutex >>= fun () ->
           match !board_wait with
           | [] ->
               (* first player *)
@@ -139,13 +148,16 @@ let initial_connection conn ~ic ~oc =
               Lwt_io.write_line oc ret >>= fun () ->
               let player = { Player.team; conn; ic; oc } in
               let wait_p = wait player in
+
               board_wait := [ (player, wait_p) ];
+              Lwt_mutex.unlock board_mutex;
+
               return_unit
           | (player1, wait) :: _ ->
-              (* TODO mutex *)
               board_wait := [];
               (* cancel first player promise to handle both in play () *)
               Lwt.cancel wait;
+              Lwt_mutex.unlock board_mutex;
 
               let team = Game.Team.flip player1.team in
               let ret = Msg.string_of_t @@ Found team in
