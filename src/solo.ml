@@ -5,14 +5,6 @@ let () = Random.self_init ()
 
 let rst = Random.get_state ()
 
-let def_ai =
-  Ai.
-    {
-      move = Game.Moves.Movekey.Middle;
-      ent = { Game.Tile.x = 0; y = 0 };
-      coord = { Game.Tile.x = 0; y = 0 };
-    }
-
 type ai = { seq : Ai.move_seq; fresh : bool }
 
 let rec game_over clientstate gamestate =
@@ -27,7 +19,7 @@ let rec game_over clientstate gamestate =
             Game.init Game.(Team.flip State.(gamestate.curr_team)) seed
           in
           loop clientstate gamestate
-            (Lwt.return { seq = def_ai; fresh = false })
+            (Lwt.return { seq = Ai.def_seq; fresh = false })
       | _ ->
           begin_drawing ();
           clear_background Color.raywhite;
@@ -55,8 +47,9 @@ and loop clientstate gamestate (ai : ai Lwt.t) =
               match gamestate.state with
               | Choose_move ->
                   if not fresh then
-                    let seq = Ai.best_move 2 gamestate in
                     ( None,
+                      Lwt_preemptive.detach (Ai.best_move 4) gamestate
+                      >>= fun (seq, _) ->
                       Lwt_unix.sleep (Random.float_range 0.2 0.7 rst)
                       >>= fun () -> Lwt.return { seq; fresh = true } )
                   else
@@ -107,4 +100,4 @@ let start () =
   loop
     (Client.init_state (Random.pick_list [ Game.Team.Blue; Red ] rst))
     (Game.init Game.Team.Blue seed)
-    (Lwt.return { seq = def_ai; fresh = false })
+    (Lwt.return { seq = Ai.def_seq; fresh = false })

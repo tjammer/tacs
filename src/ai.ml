@@ -7,6 +7,13 @@ type move_seq = {
   coord : Game.Tile.Coord.t;
 }
 
+let def_seq =
+  {
+    move = Game.Moves.Movekey.Middle;
+    ent = { Game.Tile.x = 0; y = 0 };
+    coord = { Game.Tile.x = 0; y = 0 };
+  }
+
 let inp_of_move = function
   | Game.Moves.Movekey.Blue_left | Red_left -> Game.Input.Left
   | Blue_right | Red_right -> Right
@@ -46,7 +53,7 @@ let score_move = function
 let advance gs seq =
   match Game.State.(gs.state) with
   | Choose_ent _ | Move _ -> assert false
-  | Over _ -> gs
+  | Over _ -> None
   | Choose_move ->
       let apply = Fun.flip Game.Mut.apply in
       let gs =
@@ -54,48 +61,31 @@ let advance gs seq =
         |> apply gs
       in
       let gs = Game.transitions (Some (Select (`Ent seq.ent))) gs |> apply gs in
-      Game.transitions (Some (Select (`Ent seq.coord))) gs |> apply gs
+      Game.transitions (Some (Select (`Ent seq.coord))) gs
+      |> apply gs |> Option.pure
 
-type move_tree = { gs : Game.State.t; children : (move_seq * move_tree) list }
-
-let rec fill_tree gs depth =
-  if depth = 0 then { gs; children = [] }
+let rec best_move depth gs =
+  if depth = 0 then (def_seq, 0)
   else
     let moves = find_possible_moves gs in
-    {
-      gs;
-      children =
-        List.map
-          ~f:(fun seq ->
-            let gs = advance gs seq in
-            (seq, fill_tree gs (depth - 1)))
-          moves;
-    }
-
-let best_move depth gs =
-  let tree = fill_tree gs depth in
-
-  let rec score_tree { gs; children } ct sm =
-    match children with
-    | [] -> (None, sm)
-    | lst ->
-        let op = if ct mod 2 = 0 then ( + ) else ( - ) in
-        let seq, score =
-          List.map
-            ~f:(fun (({ move; ent; coord } as seq), tree) ->
-              let score =
-                outcome_of_selected gs
-                  (List.Assoc.get_exn ~eq:Moves.Movekey.equal move gs.moves, ent)
-                  coord
-                |> Option.get_exn |> score_move
+    let seq, score =
+      List.map
+        ~f:(fun ({ move; ent; coord } as seq) ->
+          let score =
+            outcome_of_selected gs
+              (List.Assoc.get_exn ~eq:Moves.Movekey.equal move gs.moves, ent)
+              coord
+            |> Option.get_exn |> score_move
+          in
+          match score with
+          | 2 -> (seq, score)
+          | _ ->
+              let _, ch_score =
+                best_move (depth - 1) (advance gs seq |> Option.get_exn)
               in
-              let _, ch_score = score_tree tree (ct + 1) score in
-              (seq, ch_score))
-            lst
-          |> List.sort ~cmp:(fun (_, a) (_, b) -> compare b a)
-          |> List.hd
-        in
-        (Some seq, op sm score)
-  in
-  let seq, _ = score_tree tree 0 0 in
-  Option.get_exn seq
+              (seq, score - ch_score))
+        moves
+      |> List.sort ~cmp:(fun (_, a) (_, b) -> compare b a)
+      |> List.hd
+    in
+    (seq, score)
