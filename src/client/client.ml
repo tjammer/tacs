@@ -3,6 +3,8 @@ module Moves = Game.Moves
 module Tile = Game.Tile
 module ImCoords = Helpers.ImmuHashtbl.Make (Hashtbl.Make (Tile.Coord))
 module ImMoves = Helpers.ImmuHashtbl.Make (Hashtbl.Make (Moves.Movekey))
+module Bar = Helpers.Bar
+module Button = Helpers.Button
 
 type ent_anim = {
   src : float * float;
@@ -30,22 +32,6 @@ module State = struct
     ent_anims : ent_anim ImCoords.t;
     move_anims : move_anim ImMoves.t;
   }
-end
-
-module Easings = struct
-  type t = Linear | Cubic | Quad
-
-  let linear ~t ~start ~final ~dur = ((final -. start) *. t /. dur) +. start
-
-  let cubic_in ~t ~start ~final ~dur =
-    let t = t /. dur in
-    ((final -. start) *. t *. t *. t) +. start
-
-  let quad_in_out ~t ~start ~final ~dur =
-    let final = final -. start in
-    let t = t /. dur *. 2.0 in
-    if t <. 1.0 then (final /. 2.0 *. (t *. t)) +. start
-    else (-.final /. 2.0 *. (((t -. 1.0) *. (t -. 3.0)) -. 1.0)) +. start
 end
 
 let line_thickness = 4
@@ -132,7 +118,7 @@ module Mut = struct
       (fun coord { src = sx, sy; t; x = _; y = _; dur } ->
         if t >=. dur then None
         else
-          let open Easings in
+          let open Helpers.Easings in
           let fx, fy = Tile.Coord.to_pxf coord State.(cs.layout) in
           let x = quad_in_out ~t ~start:sx ~final:fx ~dur in
           let y = quad_in_out ~t ~start:sy ~final:fy ~dur in
@@ -144,7 +130,7 @@ module Mut = struct
         if t >=. dur then None
         else
           let eq = Moves.Movekey.equal in
-          let open Easings in
+          let open Helpers.Easings in
           let layout = (List.Assoc.get_exn ~eq move) cs.move_layouts in
           let fx, fy = Tile.Coord.to_pxf { x = 0; y = 0 } layout in
           let x = quad_in_out ~t ~start:sx ~final:fx ~dur in
