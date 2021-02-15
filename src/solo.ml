@@ -48,7 +48,7 @@ and loop clientstate gamestate (ai : ai Lwt.t) =
               | Choose_move ->
                   if not fresh then
                     ( None,
-                      Lwt_preemptive.detach (Ai.best_move 4) gamestate
+                      Lwt_preemptive.detach (Ai.best_move 2) gamestate
                       >>= fun (seq, _) ->
                       Lwt_unix.sleep (Random.float_range 0.2 0.7 rst)
                       >>= fun () -> Lwt.return { seq; fresh = true } )

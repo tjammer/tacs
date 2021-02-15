@@ -121,7 +121,13 @@ module Mut = struct
     | Some (Restart _) -> Coordtbl.clear cs.ent_anims
     | _ -> ()
 
+  let t = ref (Sys.time ())
+
   let update_renderstate cs =
+    let t' = Sys.time () in
+    let dt = Float.max (1.0 /. 60.0) (t' -. !t) in
+    t := t';
+
     Coordtbl.filter_map_inplace
       (fun coord { src = sx, sy; t; x = _; y = _; dur } ->
         if t >=. dur then None
@@ -130,7 +136,7 @@ module Mut = struct
           let fx, fy = Tile.Coord.to_pxf coord State.(cs.layout) in
           let x = quad_in_out ~t ~start:sx ~final:fx ~dur in
           let y = quad_in_out ~t ~start:sy ~final:fy ~dur in
-          Some { src = (sx, sy); t = t +. (1.0 /. 60.0); x; y; dur })
+          Some { src = (sx, sy); t = t +. dt; x; y; dur })
       State.(cs.ent_anims);
 
     Movetbl.filter_map_inplace
@@ -146,7 +152,7 @@ module Mut = struct
           let layout =
             { layout with origin = { x = int_of_float x; y = int_of_float y } }
           in
-          Some { src = (sx, sy); t = t +. (1.0 /. 60.0); layout; dur })
+          Some { src = (sx, sy); t = t +. dt; layout; dur })
       cs.move_anims
 end
 
