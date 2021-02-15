@@ -213,10 +213,10 @@ let rec wait_connect ic oc msg =
           if is_key_pressed Key.Escape then Lwt.return `Back
           else wait_connect ic oc msg )
 
-let connect () =
+let connect addr () =
   let open Lwt_unix in
   let sock = socket PF_INET SOCK_STREAM 0 in
-  let addr = "nils.cc" in
+  let addr = addr in
   let addr =
     match ADDR_INET ((Unix.gethostbyname addr).h_addr_list.(0), 9000) with
     | addr -> addr

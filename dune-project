@@ -10,6 +10,7 @@
  (name tacs)
  (synopsis "Small game")
  (depends
+  (cmdliner (>= 1.0.4))
   (raylib (>= 0.2.2))
   (ppx_sexp_conv (>= v0.14.1))
   (ppx_deriving (>= 5.1))

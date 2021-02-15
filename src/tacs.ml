@@ -122,7 +122,7 @@ let setup_window () =
     ]
     80 0 (width / 2) height
 
-let rec loop control buttons =
+let rec loop control address buttons =
   let open Raylib in
   match (window_should_close (), control) with
   | true, `Cont | false, `Exit | true, `Exit ->
@@ -186,14 +186,14 @@ let rec loop control buttons =
                   match bt.mode with
                   | Sp -> Some Solo.start
                   | Local -> Some Local.start
-                  | Mp -> Some Multiplayer.connect ))
+                  | Mp -> Some (Multiplayer.connect address) ))
             ~init:None buttons
         else None
       with
       | Some f -> (
           f () >>= function
-          | `Exit -> loop `Exit buttons
-          | `Back -> loop `Cont buttons )
+          | `Exit -> loop `Exit address buttons
+          | `Back -> loop `Cont address buttons )
       | None ->
           begin_drawing ();
           clear_background Color.raywhite;
@@ -216,7 +216,23 @@ let rec loop control buttons =
           draw_text txt x 175 sz Color.gray;
 
           end_drawing ();
-          if is_key_pressed Key.Escape then loop `Exit buttons
-          else loop `Cont buttons )
+          if is_key_pressed Key.Escape then loop `Exit address buttons
+          else loop `Cont address buttons )
 
-let () = Lwt_main.run (setup_window () |> loop `Cont)
+let () =
+  let addr =
+    Cmdliner.(
+      let default = None in
+      let info =
+        Arg.info [ "a"; "address" ] ~docv:"ADDR"
+          ~doc:"Optional address of a server to connect to on multiplayer."
+      in
+      let term = Arg.value (Arg.opt (Arg.some Arg.string) default info) in
+      match Term.eval (term, Term.info "tacs") with
+      | `Error _ -> exit 1
+      | `Version | `Help -> exit 0
+      | `Ok (Some addr) -> addr
+      | `Ok None -> "nils.cc")
+  in
+
+  Lwt_main.run (setup_window () |> loop `Cont addr)

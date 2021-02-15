@@ -4,7 +4,7 @@
  (link_flags
   (:include link_flags.sexp))
  (package tacs)
- (libraries raylib lwt.unix game client msg))
+ (libraries raylib lwt.unix game client msg cmdliner))
 
 (rule
  (targets link_flags.sexp)
