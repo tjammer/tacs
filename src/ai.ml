@@ -1,6 +1,10 @@
 open ContainersLabels
 open Game
 
+let () = Random.self_init ()
+
+let rst = Random.get_state ()
+
 type move_seq = {
   move : Game.Moves.Movekey.t;
   ent : Game.Tile.Coord.t;
@@ -86,6 +90,8 @@ let rec best_move depth gs =
               (seq, score - ch_score))
         moves
       |> List.sort ~cmp:(fun (_, a) (_, b) -> compare b a)
+      |> List.group_succ ~eq:(fun (_, a) (_, b) -> a = b)
       |> List.hd
+      |> (Fun.flip Random.pick_list) rst
     in
     (seq, score)
