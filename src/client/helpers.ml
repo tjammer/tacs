@@ -112,6 +112,12 @@ module Bar = struct
       outerc = Raylib.Color.gray;
       innerc = Raylib.Color.skyblue;
     }
+
+  let bars =     [
+        (hover_bar);
+        ({ hover_bar with innerc = Raylib.Color.orange });
+        ({hover_bar with innerc = Raylib.Color.maroon });
+      ]
 end
 
 module Button = struct

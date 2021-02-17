@@ -14,11 +14,7 @@ let setup_window () =
   set_exit_key Key.F12;
   Client.(
     Button.layout Bar.bar
-      [
-        (Bar.hover_bar, Sp);
-        ({ Bar.hover_bar with innerc = Color.orange }, Local);
-        ({ Bar.hover_bar with innerc = Color.maroon }, Mp);
-      ]
+      (List.map2 ~f:Pair.make Bar.bars [ Sp; Local; Mp ])
       80 0 (width / 2) height)
 
 let rec loop control address buttons =
@@ -34,7 +30,7 @@ let rec loop control address buttons =
       match
         if is_mouse_button_pressed MouseButton.Left then
           Client.Button.on_click buttons (function
-            | Sp -> Some Solo.start
+            | Sp -> Some (Solo.select (width, height))
             | Local -> Some Local.start
             | Mp -> Some (Multiplayer.connect address))
         else None
