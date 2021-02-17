@@ -151,8 +151,27 @@ let rec loop_select_diff buttons width =
 let select (width, height) () =
   (* we draw one frame to reset the mouse state *)
   let open Raylib in
+  let buttons =
+    Client.(
+      Button.layout Bar.bar
+        (List.map2 ~f:Pair.make Bar.bars [ Easy; Normal; Hard ])
+        80 0 (width / 2) height)
+  in
+
   begin_drawing ();
   clear_background Color.raywhite;
+
+  List.iter
+    ~f:(fun but ->
+      let x, y = Client.Button.xy but in
+      Client.Bar.draw_text but.bar x y
+        ( match but.mode with
+        | Normal -> "Normal"
+        | Hard -> "Hard"
+        | Easy -> "Easy" )
+        50)
+    buttons;
+
   let txt = "TACS" in
   let sz = 100 in
   let w = measure_text txt sz in
@@ -160,9 +179,4 @@ let select (width, height) () =
   draw_text txt x 175 sz Color.gray;
   end_drawing ();
 
-  loop_select_diff
-    Client.(
-      Button.layout Bar.bar
-        (List.map2 ~f:Pair.make Bar.bars [ Easy; Normal; Hard ])
-        80 0 (width / 2) height)
-    width
+  loop_select_diff buttons width
