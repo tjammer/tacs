@@ -12,6 +12,7 @@ let setup_window () =
   set_config_flags [ ConfigFlag.VSync_hint ];
   init_window 1280 720 "tacs";
   set_exit_key Key.F12;
+  set_window_icon (load_image "assets/blue_king.png");
   Client.(
     Button.layout Bar.bar
       (List.map2 ~f:Pair.make Bar.bars [ Sp; Local; Mp ])
