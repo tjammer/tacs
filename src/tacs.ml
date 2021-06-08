@@ -39,7 +39,7 @@ let rec loop control address buttons =
       | Some f -> (
           f () >>= function
           | `Exit -> loop `Exit address buttons
-          | `Back -> loop `Cont address buttons )
+          | `Back -> loop `Cont address buttons)
       | None ->
           begin_drawing ();
           clear_background Color.raywhite;
@@ -48,10 +48,10 @@ let rec loop control address buttons =
             ~f:(fun but ->
               let x, y = Client.Button.xy but in
               Client.Bar.draw_text but.bar x y
-                ( match but.mode with
+                (match but.mode with
                 | Local -> "Local"
                 | Mp -> "Multiplayer"
-                | Sp -> "Singleplayer" )
+                | Sp -> "Singleplayer")
                 50)
             buttons;
 
@@ -63,7 +63,7 @@ let rec loop control address buttons =
 
           end_drawing ();
           if is_key_pressed Key.Escape then loop `Exit address buttons
-          else loop `Cont address buttons )
+          else loop `Cont address buttons)
 
 let () =
   let addr =

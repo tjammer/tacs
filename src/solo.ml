@@ -30,7 +30,7 @@ let rec game_over clientstate gamestate difficulty =
           end_drawing ();
 
           if is_key_pressed Key.Escape then Lwt.return `Back
-          else game_over clientstate gamestate difficulty )
+          else game_over clientstate gamestate difficulty)
 
 and loop clientstate gamestate ai difficulty =
   let open Raylib in
@@ -74,7 +74,7 @@ and loop clientstate gamestate ai difficulty =
                   ( Some (Select (`Ent seq.coord)),
                     Lwt_unix.sleep (Random.float_range 0.5 1.0 rst)
                     >>= fun () -> ai )
-              | Over _ -> (Some (Select (`Move Left)), ai) )
+              | Over _ -> (Some (Select (`Move Left)), ai))
           | Sleep -> (None, ai)
           | Fail _ -> assert false
       in
@@ -96,7 +96,7 @@ and loop clientstate gamestate ai difficulty =
       else
         match gamestate.state with
         | Game.Over _ -> game_over clientstate gamestate difficulty
-        | _ -> loop clientstate gamestate ai difficulty )
+        | _ -> loop clientstate gamestate ai difficulty)
 
 let start difficulty () =
   let seed = Random.bits () in
@@ -131,10 +131,10 @@ let rec loop_select_diff buttons width =
             ~f:(fun but ->
               let x, y = Client.Button.xy but in
               Client.Bar.draw_text but.bar x y
-                ( match but.mode with
+                (match but.mode with
                 | Normal -> "Normal"
                 | Hard -> "Hard"
-                | Easy -> "Easy" )
+                | Easy -> "Easy")
                 50)
             buttons;
 
@@ -146,7 +146,7 @@ let rec loop_select_diff buttons width =
 
           end_drawing ();
           if is_key_pressed Key.Escape then Lwt.return `Back
-          else loop_select_diff buttons width )
+          else loop_select_diff buttons width)
 
 let select (width, height) () =
   (* we draw one frame to reset the mouse state *)
@@ -165,10 +165,10 @@ let select (width, height) () =
     ~f:(fun but ->
       let x, y = Client.Button.xy but in
       Client.Bar.draw_text but.bar x y
-        ( match but.mode with
+        (match but.mode with
         | Normal -> "Normal"
         | Hard -> "Hard"
-        | Easy -> "Easy" )
+        | Easy -> "Easy")
         50)
     buttons;
 

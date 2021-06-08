@@ -57,7 +57,7 @@ let rec wait player =
           return_unit
       | _ ->
           Lwt_mutex.unlock board_mutex;
-          return_unit )
+          return_unit)
 
 let msg_with_player p =
   Lwt_io.read_line_opt Player.(p.ic) >>= fun msg -> Lwt.return (msg, p)
@@ -115,16 +115,16 @@ and play gs p1 p2 =
         print_endline
           "unexpected team. we should drop,b/c the player cliend cannot recover";
 
-        play gs p1 p2 )
+        play gs p1 p2)
       else
         let trans = Game.transitions (Some input) gs in
         let gs = Game.Mut.apply trans gs in
         (* write to other player *)
         let oc = if Game.Team.equal player.team p1.team then p2.oc else p1.oc in
-        Lwt_io.write_line oc (Option.get_exn msg) >>= fun () ->
+        Lwt_io.write_line oc (Option.get_exn_or "no message" msg) >>= fun () ->
         match gs.state with
         | Game.Over team -> game_over team p1 p2 []
-        | _ -> play gs p1 p2 )
+        | _ -> play gs p1 p2)
   | Some (Start _) | Some (Found _) | Some Search ->
       print_endline "unexpected message in handle message. drop";
       return_unit
@@ -169,7 +169,7 @@ let initial_connection conn ~ic ~oc =
               let gamestate = Game.init start_team seed in
 
               start_game player1.oc player2.oc start_team seed >>= fun () ->
-              play gamestate player1 player2 )
+              play gamestate player1 player2)
       | Some (Start _) | Some (Move _) | Some (Found _) ->
           print_endline "unexpected message in 1st conn";
           Lwt.try_bind

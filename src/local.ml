@@ -23,7 +23,7 @@ let rec game_over clientstate gamestate =
           end_drawing ();
 
           if is_key_pressed Key.Escape then Lwt.return `Back
-          else game_over clientstate gamestate )
+          else game_over clientstate gamestate)
 
 and loop clientstate gamestate =
   let open Raylib in
@@ -47,7 +47,7 @@ and loop clientstate gamestate =
       else
         match gamestate.state with
         | Game.Over _ -> game_over clientstate gamestate
-        | _ -> loop clientstate gamestate )
+        | _ -> loop clientstate gamestate)
 
 let start () =
   let seed = Random.bits () in

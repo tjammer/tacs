@@ -58,7 +58,8 @@ let choose_move team = function
   | `Ent _ -> None
   | `Move Input.Left ->
       Some (match team with Team.Blue -> Movekey.Blue_left | Red -> Red_left)
-  | `Move Right -> Some (match team with Blue -> Blue_right | Red -> Red_right)
+  | `Move Right ->
+      Some (match team with Blue -> Blue_right | Red -> Red_right)
 
 type outcome = Take | Move | Win_take | Win_move
 
@@ -94,7 +95,7 @@ let transitions input gs =
       | Take | Move -> Some (Do_move { move; src; dst = coord })
       | Win_take | Win_move ->
           let team = Team.flip gs.curr_team in
-          Some (State (Over team)) )
+          Some (State (Over team)))
   | Select _, Over _ -> None
   | Deselect, Choose_move -> None
   | Deselect, Choose_ent _ -> Some (State Choose_move)
@@ -131,9 +132,6 @@ let init starting_team seed =
   State.{ ents; moves; state = Choose_move; curr_team = starting_team }
 
 module Mut = struct
-  module Movetbl = Hashtbl.Make (Movekey)
-  module Coordtbl = Hashtbl.Make (Tile.Coord)
-
   let advance move moves =
     let eq = Movekey.equal in
     let middle = List.Assoc.get_exn ~eq Movekey.Middle moves in

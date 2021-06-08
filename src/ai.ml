@@ -79,13 +79,15 @@ let rec best_move depth gs =
             outcome_of_selected gs
               (List.Assoc.get_exn ~eq:Moves.Movekey.equal move gs.moves, ent)
               coord
-            |> Option.get_exn |> score_move
+            |> Option.get_exn_or "wrong outcame"
+            |> score_move
           in
           match score with
           | 2 -> (seq, score)
           | _ ->
               let _, ch_score =
-                best_move (depth - 1) (advance gs seq |> Option.get_exn)
+                best_move (depth - 1)
+                  (advance gs seq |> Option.get_exn_or "no best move")
               in
               (seq, score - ch_score))
         moves

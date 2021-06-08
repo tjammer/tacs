@@ -31,7 +31,7 @@ let rec game_over team ic oc msg clientstate gamestate (me, them) =
             | Some (Start { starting; move_seed }) ->
                 let gamestate = Game.init starting move_seed in
                 (None, new_msg, `Start gamestate)
-            | _ -> (None, new_msg, `Cont) )
+            | _ -> (None, new_msg, `Cont))
         | Return None | Fail _ -> (None, msg, `Abort)
         | Sleep -> (None, msg, `Cont)
       in
@@ -101,7 +101,7 @@ let rec game_over team ic oc msg clientstate gamestate (me, them) =
       match control with
       | `Cont -> game_over team ic oc msg clientstate gamestate (me, them)
       | `Start gamestate -> loop ic oc msg clientstate gamestate
-      | `Abort -> Lwt_io.close oc >>= fun () -> Lwt.return `Back )
+      | `Abort -> Lwt_io.close oc >>= fun () -> Lwt.return `Back)
 
 and loop ic oc msg clientstate gamestate =
   let open Raylib in
@@ -115,7 +115,7 @@ and loop ic oc msg clientstate gamestate =
             let new_msg = Lwt_io.read_line_opt ic in
             match Msg.parse msg with
             | Some (Move input) -> (Some input, new_msg, `Cont)
-            | _ -> (None, new_msg, `Cont) )
+            | _ -> (None, new_msg, `Cont))
         | Return None | Fail _ -> (None, msg, `Abort)
         | Sleep -> (None, msg, `Cont)
       in
@@ -156,7 +156,7 @@ and loop ic oc msg clientstate gamestate =
       | `Cont, Game.Over team ->
           game_over team ic oc msg clientstate gamestate (false, false)
       | `Cont, _ -> loop ic oc msg clientstate gamestate
-      | `Abort, _ -> Lwt_io.close oc >>= fun () -> Lwt.return `Back )
+      | `Abort, _ -> Lwt_io.close oc >>= fun () -> Lwt.return `Back)
 
 let rec wait_for_other ic oc msg clientstate =
   let open Raylib in
@@ -174,7 +174,7 @@ let rec wait_for_other ic oc msg clientstate =
             | Some (Start { starting; move_seed }) ->
                 let gamestate = Game.init starting move_seed in
                 loop ic oc new_msg clientstate gamestate
-            | _ -> wait_for_other ic oc new_msg clientstate )
+            | _ -> wait_for_other ic oc new_msg clientstate)
         | Return None -> Lwt.return `Back
         | Fail _ -> Lwt.return `Back
         | Sleep ->
@@ -185,7 +185,7 @@ let rec wait_for_other ic oc msg clientstate =
               90 Color.black;
             end_drawing ();
             Lwt_unix.sleep 0.0 >>= fun () ->
-            wait_for_other ic oc msg clientstate )
+            wait_for_other ic oc msg clientstate)
 
 let rec wait_connect ic oc msg =
   let open Raylib in
@@ -200,7 +200,7 @@ let rec wait_connect ic oc msg =
           | Some (Found team) ->
               let clientstate = Client.init_state team in
               wait_for_other ic oc new_msg clientstate
-          | _ -> wait_connect ic oc new_msg )
+          | _ -> wait_connect ic oc new_msg)
       | Return None | Fail _ -> Lwt.return `Back
       | Sleep ->
           begin_drawing ();
@@ -211,7 +211,7 @@ let rec wait_connect ic oc msg =
           end_drawing ();
           Lwt_unix.sleep 0.0 >>= fun () ->
           if is_key_pressed Key.Escape then Lwt.return `Back
-          else wait_connect ic oc msg )
+          else wait_connect ic oc msg)
 
 let connect addr () =
   let open Lwt_unix in

@@ -185,7 +185,7 @@ let draw cs gs =
                 | Some Move -> Some (target, `Move)
                 | None -> None)
               move
-        | None -> [] )
+        | None -> [])
     | _ -> []
   in
 
@@ -263,9 +263,9 @@ let draw cs gs =
         | Red_left | Red_right -> Color.orange
         | Middle ->
             fade
-              ( match gs.curr_team with
+              (match gs.curr_team with
               | Blue -> Color.skyblue
-              | Red -> Color.orange )
+              | Red -> Color.orange)
               0.5
       in
       draw_move move layout color)
@@ -285,8 +285,11 @@ let draw cs gs =
       cs.move_layouts |> List.Assoc.get_exn move ~eq:Moves.Movekey.equal
     in
     draw_rectangle_lines_ex
-      (recti layout.origin.x layout.origin.y (layout.size.x * 5)
-         (layout.size.y * 5))
+      (recti
+         (layout.origin.x - line_thickness)
+         (layout.origin.y - line_thickness)
+         ((layout.size.x * 5) + line_thickness)
+         ((layout.size.y * 5) + line_thickness))
       line_thickness Color.yellow;
     ()
   in
