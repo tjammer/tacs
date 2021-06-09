@@ -41,23 +41,31 @@ let start_game oc1 oc2 starting move_seed =
   Lwt.join [ m1; m2 ]
 
 let rec wait player =
-  Lwt_io.read_line_opt Player.(player.ic) >>= function
-  | Some _ ->
-      (* we ignore input, they should be waiting *)
-      wait player
-  | None -> (
-      (* connection dropped *)
+  Lwt.try_bind
+    (fun () -> Lwt_io.read_line_opt Player.(player.ic))
+    (function
+      | Some _ ->
+          (* we ignore input, they should be waiting *)
+          wait player
+      | None -> (
+          (* connection dropped *)
+          Lwt_mutex.lock board_mutex >>= fun () ->
+          match !board_wait with
+          | (player1, _) :: _
+            when Game.Team.equal player.team Player.(player1.team) ->
+              print_endline "waiting player dropped";
+              board_wait := [];
+              Lwt_mutex.unlock board_mutex;
+              return_unit
+          | _ ->
+              Lwt_mutex.unlock board_mutex;
+              return_unit))
+    (fun _ ->
       Lwt_mutex.lock board_mutex >>= fun () ->
-      match !board_wait with
-      | (player1, _) :: _ when Game.Team.equal player.team Player.(player1.team)
-        ->
-          print_endline "waiting player dropped";
-          board_wait := [];
-          Lwt_mutex.unlock board_mutex;
-          return_unit
-      | _ ->
-          Lwt_mutex.unlock board_mutex;
-          return_unit)
+      print_endline "waiting player exnd";
+      board_wait := [];
+      Lwt_mutex.unlock board_mutex;
+      return_unit)
 
 let msg_with_player p =
   Lwt_io.read_line_opt Player.(p.ic) >>= fun msg -> Lwt.return (msg, p)
