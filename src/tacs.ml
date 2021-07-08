@@ -9,7 +9,7 @@ type mode = Local | Mp | Sp
 
 let setup_window () =
   let open Raylib in
-  set_config_flags [ ConfigFlag.VSync_hint ];
+  set_config_flags [ ConfigFlags.Vsync_hint ];
   init_window 1280 720 "tacs";
   set_exit_key Key.F12;
   set_window_icon (load_image "assets/blue_king.png");
