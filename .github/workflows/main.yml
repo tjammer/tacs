@@ -35,11 +35,11 @@ jobs:
 
       - run: opam install . --deps-only
 
-      - run: opam exec dune build
+      - run: opam exec -- dune build --profile release
 
       - uses: actions/upload-artifact@v2
         with:
-          name: tacs ${{ matrix.os }}
+          name: tacs-${{ matrix.os }}
           path: |
             _build/default/src/tacs.exe
             _build/default/src/server/server.exe

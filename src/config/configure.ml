@@ -12,8 +12,10 @@ let () =
               "-subsystem";
               "-cclib";
               "windows";
+              "-cclib";
+              "-Wl,-s";
             ]
-        | Some _ | None -> []
+        | Some _ | None -> [ "-cclib"; "-s" ]
       in
 
       C.Flags.write_sexp "link_flags.sexp" link_flags)
