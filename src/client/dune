@@ -1,3 +1,10 @@
 (library
  (name client)
+ (preprocess
+  (pps ppx_blob))
+ (preprocessor_deps
+  (file ../../assets/blue_king.png)
+  (file ../../assets/blue_pawn.png)
+  (file ../../assets/red_pawn.png)
+  (file ../../assets/red_king.png))
  (libraries raylib containers game))

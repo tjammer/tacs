@@ -306,13 +306,27 @@ let draw cs gs =
         ((get_screen_height () / 2) - 100)
         100 Color.black
 
-let pawn_blue = lazy (Raylib.load_texture "assets/blue_pawn.png")
+let loadi s =
+  (* This is not very pleasant. Maybe Raylib can just take strings? *)
+  let carr =
+    String.to_list s
+    |> List.map ~f:(fun c -> Char.to_int c |> Unsigned.UChar.of_int)
+    |> Ctypes.CArray.of_list Ctypes.uchar
+  in
+  Raylib.(
+    load_image_from_memory ".png" (CArray.start carr) (CArray.length carr))
 
-let king_blue = lazy (Raylib.load_texture "assets/blue_king.png")
+let load s = Raylib.(loadi s |> load_texture_from_image)
 
-let pawn_red = lazy (Raylib.load_texture "assets/red_pawn.png")
+let pawn_blue = lazy (load [%blob "assets/blue_pawn.png"])
 
-let king_red = lazy (Raylib.load_texture "assets/red_king.png")
+let king_bluei = lazy (loadi [%blob "assets/blue_king.png"])
+
+let king_blue = lazy (Raylib.load_texture_from_image (Lazy.force king_bluei))
+
+let pawn_red = lazy (load [%blob "assets/red_pawn.png"])
+
+let king_red = lazy (load [%blob "assets/red_king.png"])
 
 let init_state pov_team =
   (* TODO implemend this properly *)
