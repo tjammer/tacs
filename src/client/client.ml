@@ -205,7 +205,8 @@ let draw cs gs =
         (recti (x + line_thickness) (y + line_thickness)
            (lsx - (2 * line_thickness))
            (lsy - (2 * line_thickness)))
-        line_thickness Color.lightgray
+        (Float.of_int line_thickness)
+        Color.lightgray
     done
   done;
 
@@ -277,7 +278,8 @@ let draw cs gs =
       (recti (x + line_thickness) (y + line_thickness)
          (lsx - (2 * line_thickness))
          (lsy - (2 * line_thickness)))
-      line_thickness Color.yellow
+      (Float.of_int line_thickness)
+      Color.yellow
   in
 
   let highlight_move move =
@@ -290,7 +292,8 @@ let draw cs gs =
          (layout.origin.y - line_thickness)
          ((layout.size.x * 5) + line_thickness)
          ((layout.size.y * 5) + line_thickness))
-      line_thickness Color.yellow;
+      (Float.of_int line_thickness)
+      Color.yellow;
     ()
   in
   match gs.state with
@@ -306,26 +309,12 @@ let draw cs gs =
         ((get_screen_height () / 2) - 100)
         100 Color.black
 
-let loadi s =
-  (* This is not very pleasant. Maybe Raylib can just take strings? *)
-  let carr =
-    String.to_list s
-    |> List.map ~f:(fun c -> Char.to_int c |> Unsigned.UChar.of_int)
-    |> Ctypes.CArray.of_list Ctypes.uchar
-  in
-  Raylib.(
-    load_image_from_memory ".png" (CArray.start carr) (CArray.length carr))
-
+let loadi s = Raylib.(load_image_from_memory ".png" s (String.length s))
 let load s = Raylib.(loadi s |> load_texture_from_image)
-
 let pawn_blue = lazy (load [%blob "assets/blue_pawn.png"])
-
 let king_bluei = lazy (loadi [%blob "assets/blue_king.png"])
-
 let king_blue = lazy (Raylib.load_texture_from_image (Lazy.force king_bluei))
-
 let pawn_red = lazy (load [%blob "assets/red_pawn.png"])
-
 let king_red = lazy (load [%blob "assets/red_king.png"])
 
 let init_state pov_team =
