@@ -4,4 +4,4 @@
  (link_flags
   (:include ../link_flags.sexp))
  (package tacs-server)
- (libraries game msg lwt.unix sexplib))
+ (libraries game msg lwt.unix sexplib0 csexp))

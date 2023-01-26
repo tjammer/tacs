@@ -10,7 +10,8 @@ depends: [
   "containers" {>= "3.1"}
   "dune" {>= "2.7"}
   "lwt"
-  "sexplib"
+  "csexp"
+  "sexplib0"
   "odoc" {with-doc}
 ]
 build: [

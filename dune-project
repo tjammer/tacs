@@ -9,14 +9,15 @@
  (synopsis "Small game")
  (depends
   (ppx_blob (>= 0.7.2))
-  (cmdliner (>= 1.0.4))
+  (cmdliner (= 1.0.4))
   (raylib (>= 0.4.0))
   (ppx_sexp_conv (>= v0.14.1))
   (ppx_deriving (>= 5.1))
   dune
   containers
   lwt
-  sexplib))
+  csexp
+  sexplib0))
 (package
  (name tacs-server)
  (synopsis "Server for tacs")
@@ -26,4 +27,5 @@
   (containers (>= 3.1))
   dune
   lwt
-  sexplib))
+  csexp
+  sexplib0))
