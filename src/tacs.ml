@@ -65,6 +65,8 @@ let rec loop control address buttons =
           if is_key_pressed Key.Escape then loop `Exit address buttons
           else loop `Cont address buttons)
 
+[@@@alert "-deprecated"]
+
 let () =
   let addr =
     Cmdliner.(
