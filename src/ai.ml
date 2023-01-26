@@ -2,7 +2,6 @@ open ContainersLabels
 open Game
 
 let () = Random.self_init ()
-
 let rst = Random.get_state ()
 
 type move_seq = {

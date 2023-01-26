@@ -2,11 +2,9 @@ open ContainersLabels
 open Lwt.Infix
 
 let () = Random.self_init ()
-
 let rst = Random.get_state ()
 
 type ai = { seq : Ai.move_seq; fresh : bool }
-
 type difficulty = Easy | Normal | Hard
 
 let rec game_over clientstate gamestate difficulty =

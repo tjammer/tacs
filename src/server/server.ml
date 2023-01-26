@@ -19,11 +19,8 @@ module Board = struct
 end
 
 let board_wait = ref []
-
 let board_mutex = Lwt_mutex.create ()
-
 let () = Random.self_init ()
-
 let rst = Random.get_state ()
 
 let create_socket () =

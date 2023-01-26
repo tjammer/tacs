@@ -10,7 +10,6 @@ module Team = struct
   type t = Blue | Red [@@deriving eq, sexp]
 
   let flip = function Blue -> Red | Red -> Blue
-
   let to_str = function Blue -> "Blue" | Red -> "Red"
 
   let win_field = function
@@ -35,7 +34,6 @@ end
 
 module Transition = struct
   type do_move = { move : Movekey.t; src : Tile.Coord.t; dst : Tile.Coord.t }
-
   type t = Do_move of do_move | Restart of Team.t | State of state_kind
 end
 

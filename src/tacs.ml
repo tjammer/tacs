@@ -2,7 +2,6 @@ open ContainersLabels
 open Lwt.Infix
 
 let width = 1280
-
 let height = 720
 
 type mode = Local | Mp | Sp

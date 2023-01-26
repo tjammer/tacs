@@ -56,25 +56,15 @@ module Moves = struct
 end
 
 let mantis = [ { Tile.x = 0; y = 1 }; { x = -1; y = -1 }; { x = 1; y = -1 } ]
-
 let horse = [ { Tile.x = 0; y = 1 }; { x = -1; y = 0 }; { x = 0; y = -1 } ]
-
 let tiger = [ { Tile.x = 0; y = 1 }; { x = 0; y = -2 } ]
-
 let ox = [ { Tile.x = 0; y = -1 }; { x = 1; y = 0 }; { x = 0; y = 1 } ]
-
 let cobra = [ { Tile.x = 1; y = 1 }; { x = 1; y = -1 }; { x = -1; y = 0 } ]
-
 let crane = [ { Tile.x = 0; y = -1 }; { x = -1; y = 1 }; { x = 1; y = 1 } ]
-
 let boar = [ { Tile.x = 0; y = -1 }; { x = -1; y = 0 }; { x = 1; y = 0 } ]
-
 let eel = [ { Tile.x = -1; y = -1 }; { x = -1; y = 1 }; { x = 1; y = 0 } ]
-
 let frog = [ { Tile.x = -1; y = -1 }; { x = -2; y = 0 }; { x = 1; y = 1 } ]
-
 let crab = [ { Tile.x = -2; y = 0 }; { x = 0; y = -1 }; { x = 2; y = 0 } ]
-
 let rabbit = [ { Tile.x = -1; y = 1 }; { x = 2; y = 0 }; { x = 1; y = -1 } ]
 
 let monkey =

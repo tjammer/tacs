@@ -2,7 +2,6 @@ open ContainersLabels
 open Sexplib0.Sexp_conv
 
 type vec2 = { x : int; y : int } [@@deriving eq, sexp]
-
 type layout = { size : vec2; origin : vec2 }
 
 module Coord = struct
@@ -30,6 +29,5 @@ module Coord = struct
     (x, y)
 
   let to_pxf coord layout = to_px coord layout |> Pair.map_same float_of_int
-
   let hash = Hashtbl.hash
 end

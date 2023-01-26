@@ -1,7 +1,6 @@
 open ContainersLabels
 
 let () = Random.self_init ()
-
 let rst = Random.get_state ()
 
 let rec game_over clientstate gamestate =
